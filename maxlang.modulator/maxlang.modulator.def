@@ -1,0 +1,4 @@
+LIBRARY maxlang.modulator.mxe
+
+EXPORTS
+	main
