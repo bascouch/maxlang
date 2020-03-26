@@ -140,7 +140,7 @@ public:
     std::chrono::high_resolution_clock::time_point tack;
     std::chrono::high_resolution_clock::time_point tmpTick;
     
-    maxlang::m_line test_lfo;
+    maxlang::m_lfo test_lfo;
     
 };
 

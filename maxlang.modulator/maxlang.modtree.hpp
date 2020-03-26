@@ -15,66 +15,22 @@
 
 namespace maxlang {
     
-    class modtor;
-        
     enum modtor_param_type { e_int, e_double, e_list, e_modtor };
     
-    class modtor_param {
-        
+    class modtor;
+    
+    class modtor_param
+    {
         public :
-        modtor_param()
-        {
-            _type = modtor_param_type::e_double;
-            _value_d = 0.;
-        }
-        modtor_param(double v){
-            
-            _type = modtor_param_type::e_double;
-            _value_d = v;
-        }
+        modtor_param();
+        modtor_param(double v);
+        modtor_param(int v);
+        modtor_param(std::vector<modtor_param> l);
+        modtor_param(modtor *m);
+        ~modtor_param();
         
-        modtor_param(int v){
-            
-            _type = modtor_param_type::e_int;
-            _value_i = v;
-        }
-        
-        modtor_param(std::vector<modtor_param> l){
-            
-            _type = modtor_param_type::e_list;
-            _list = l;
-        }
-        
-        modtor_param(modtor *m){
-            
-            _type = modtor_param_type::e_modtor;
-            _modtor = m;
-        }
-        
-        ~modtor_param()
-        {
-            
-        }
-        double get(double deltatime)
-        {
-            switch (_type)
-            {
-                case modtor_param_type::e_double:
-                    return _value_d;
-                case modtor_param_type::e_int:
-                    return _value_i;
-                case modtor_param_type::e_list:
-                    return 0.;
-                case modtor_param_type::e_modtor:
-                    return _modtor.get(deltatime);
-            }
-            
-        }
-        void set(double value)
-        {
-            _value_d=value;
-            
-        }
+        double get(double deltatime);
+        void set(double value);
         
         modtor_param_type _type;
         
@@ -85,6 +41,7 @@ namespace maxlang {
         
     };
     
+    
     class modtor {
         
     public :
@@ -92,7 +49,10 @@ namespace maxlang {
         {}
         ~modtor()
         {}
-        double get(double deltatime);
+        double get(double deltatime){
+            // WILL be overidden
+            return 0.;
+        }
         
         int setparam(std::string name, modtor_param value)
         {
@@ -112,6 +72,69 @@ namespace maxlang {
     private:
         
     };
+    
+    
+    /****/
+    //IMPL
+    /****/
+    
+    
+    modtor_param::modtor_param()
+    {
+        _type = modtor_param_type::e_double;
+        _value_d = 0.;
+    }
+    modtor_param::modtor_param(double v){
+        
+        _type = modtor_param_type::e_double;
+        _value_d = v;
+    }
+    
+    modtor_param::modtor_param(int v){
+        
+        _type = modtor_param_type::e_int;
+        _value_i = v;
+    }
+    
+    modtor_param::modtor_param(std::vector<modtor_param> l){
+        
+        _type = modtor_param_type::e_list;
+        _list = l;
+    }
+    
+    modtor_param::modtor_param(modtor *m){
+        
+        _type = modtor_param_type::e_modtor;
+        _modtor = m;
+    }
+    
+    modtor_param::~modtor_param()
+    {
+        
+    }
+    double modtor_param::get(double deltatime)
+    {
+        switch (_type)
+        {
+            case modtor_param_type::e_double:
+                return _value_d;
+            case modtor_param_type::e_int:
+                return _value_i;
+            case modtor_param_type::e_list:
+                return 0.;
+            case modtor_param_type::e_modtor:
+                double v = _modtor->get(deltatime);
+                printf("line : %f\n",v);
+                return v;
+        }
+        
+    }
+    void modtor_param::set(double value)
+    {
+        _value_d=value;
+        
+    }
+    
     
     class m_line : public modtor {
         
@@ -162,6 +185,8 @@ namespace maxlang {
             double max = params["max"].get(deltatime);
             double curve = params["curve"].get(deltatime);
             
+            printf("get line\n");
+            
             if (phase < 0.) // start the line
             {
                 // choose time
@@ -184,7 +209,7 @@ namespace maxlang {
                 segment_scale.setout_max(max);
                 
                 phase += deltatime;
-                //printf("phase %f\n",phase);
+                printf("phase %f\n",phase);
                 m_output = std::clamp(segment_scale.apply(phase),min,max);
                 
             }
@@ -205,7 +230,9 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("mode",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("pw",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("min",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
+            //params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
+            m_line* line = new m_line();
+            params.insert(std::pair<std::string, modtor_param>("max",modtor_param(line)));
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
             
             
