@@ -10,11 +10,11 @@
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "maxlang.modulator.cpp"
-            timestampString = "606642568.53026"
+            timestampString = "606858057.684535"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "202"
-            endingLineNumber = "202"
+            startingLineNumber = "97"
+            endingLineNumber = "97"
             landmarkName = "parse(long inlet, t_symbol * s, long ac, t_atom * av)"
             landmarkType = "9">
          </BreakpointContent>
@@ -26,11 +26,27 @@
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "maxlang.modulator.cpp"
-            timestampString = "606642568.530327"
+            timestampString = "606858057.685138"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "211"
-            endingLineNumber = "211"
+            startingLineNumber = "114"
+            endingLineNumber = "114"
+            landmarkName = "parse(long inlet, t_symbol * s, long ac, t_atom * av)"
+            landmarkType = "9">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            shouldBeEnabled = "No"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "maxlang.modulator.cpp"
+            timestampString = "606858057.685395"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "74"
+            endingLineNumber = "74"
             landmarkName = "parse(long inlet, t_symbol * s, long ac, t_atom * av)"
             landmarkType = "9">
          </BreakpointContent>

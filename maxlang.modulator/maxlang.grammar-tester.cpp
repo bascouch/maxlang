@@ -14,6 +14,7 @@
 namespace pegtl = tao::pegtl;
 
 #include "maxlang.grammar.hpp"
+#include "maxlang.parsetree.hpp"
 
 int main(int argc, const char * argv[]) {
     

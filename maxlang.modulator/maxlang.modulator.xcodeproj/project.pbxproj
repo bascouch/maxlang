@@ -35,6 +35,9 @@
 		568E925D2424A5740087FCF6 /* maxlang.grammar-tester */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "maxlang.grammar-tester"; sourceTree = BUILT_PRODUCTS_DIR; };
 		568E92642424A6140087FCF6 /* maxlang.grammar-tester.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "maxlang.grammar-tester.cpp"; sourceTree = "<group>"; };
 		568E92692428A13A0087FCF6 /* maxlang.grammar.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = maxlang.grammar.hpp; sourceTree = "<group>"; };
+		568E926B2428C7610087FCF6 /* maxlang.parsetree.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = maxlang.parsetree.hpp; sourceTree = "<group>"; };
+		568E926C2428D0EF0087FCF6 /* maxlang.modtree.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = maxlang.modtree.hpp; sourceTree = "<group>"; };
+		568E926D242A37DA0087FCF6 /* maxlang.utils.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = maxlang.utils.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -59,6 +62,9 @@
 		089C166AFE841209C02AAC07 /* iterator */ = {
 			isa = PBXGroup;
 			children = (
+				568E926D242A37DA0087FCF6 /* maxlang.utils.hpp */,
+				568E926C2428D0EF0087FCF6 /* maxlang.modtree.hpp */,
+				568E926B2428C7610087FCF6 /* maxlang.parsetree.hpp */,
 				568E92692428A13A0087FCF6 /* maxlang.grammar.hpp */,
 				568E92642424A6140087FCF6 /* maxlang.grammar-tester.cpp */,
 				36C5491F16F557E00054C037 /* maxcpp */,
