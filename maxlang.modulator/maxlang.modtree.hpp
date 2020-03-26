@@ -26,7 +26,7 @@ namespace maxlang {
         modtor_param(double v);
         modtor_param(int v);
         modtor_param(std::vector<modtor_param> l);
-        modtor_param(modtor *m);
+        modtor_param(modtor * m);
         ~modtor_param();
         
         double get(double deltatime);
@@ -49,10 +49,8 @@ namespace maxlang {
         {}
         ~modtor()
         {}
-        double get(double deltatime){
-            // WILL be overidden
-            return 0.;
-        }
+        
+        virtual double get(double deltatime) = 0;
         
         int setparam(std::string name, modtor_param value)
         {
@@ -102,7 +100,7 @@ namespace maxlang {
         _list = l;
     }
     
-    modtor_param::modtor_param(modtor *m){
+    modtor_param::modtor_param(modtor * m){
         
         _type = modtor_param_type::e_modtor;
         _modtor = m;
@@ -112,6 +110,7 @@ namespace maxlang {
     {
         
     }
+    
     double modtor_param::get(double deltatime)
     {
         switch (_type)
@@ -124,7 +123,7 @@ namespace maxlang {
                 return 0.;
             case modtor_param_type::e_modtor:
                 double v = _modtor->get(deltatime);
-                printf("line : %f\n",v);
+                //printf("modtor val : %f\n",v);
                 return v;
         }
         
@@ -176,7 +175,7 @@ namespace maxlang {
         std::uniform_real_distribution<double> mt_rand_time;
         
         
-        double get(double deltatime)
+        double get(double deltatime) override
         {
             // get all the parameters
             double time = params["time"].get(deltatime);
@@ -185,7 +184,7 @@ namespace maxlang {
             double max = params["max"].get(deltatime);
             double curve = params["curve"].get(deltatime);
             
-            printf("get line\n");
+            //printf("get line\n");
             
             if (phase < 0.) // start the line
             {
@@ -209,7 +208,7 @@ namespace maxlang {
                 segment_scale.setout_max(max);
                 
                 phase += deltatime;
-                printf("phase %f\n",phase);
+                //printf("phase %f\n",phase);
                 m_output = std::clamp(segment_scale.apply(phase),min,max);
                 
             }
@@ -231,8 +230,7 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("pw",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("min",modtor_param(0.)));
             //params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
-            m_line* line = new m_line();
-            params.insert(std::pair<std::string, modtor_param>("max",modtor_param(line)));
+            params.insert(std::pair<std::string, modtor_param>("max",modtor_param(new m_line())));
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
             
             
@@ -300,7 +298,7 @@ namespace maxlang {
             return w;
         }
         
-        double get(double deltatime)
+        double get(double deltatime) override
         {
             // get all the parameters
             double freq = params["freq"].get(deltatime);
@@ -382,7 +380,7 @@ namespace maxlang {
         std::uniform_real_distribution<double> mt_rand_time, mt_rand_val;
         
         
-        double get(double deltatime)
+        double get(double deltatime) override
         {
             // get all the parameters
             double freq = params["freq"].get(deltatime);
@@ -466,7 +464,7 @@ namespace maxlang {
         std::uniform_real_distribution<double> mt_rand_time, mt_rand_val;
         
         
-        double get(double deltatime)
+        double get(double deltatime) override
         {
             // get all the parameters
             double freq = params["freq"].get(deltatime);

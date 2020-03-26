@@ -67,8 +67,8 @@ public:
 		outlet_int(m_outlets[0], v);
 	}
 	
-	void test(long inlet, t_symbol * s, long ac, t_atom * av) { 
-		outlet_anything(m_outlets[0], gensym("test"), ac, av);
+	void test(long inlet, t_symbol * s, long ac, t_atom * av) {
+        test_lfo.setparam("max", maxlang::modtor_param(new maxlang::m_randi()));
 	}
     
     void parse(long inlet, t_symbol * s, long ac, t_atom * av) {
