@@ -10,21 +10,33 @@ namespace pegtl = tao::pegtl;
 
 #include "maxlang.utils.hpp"
 #include "maxlang.grammar.hpp"
-#include "maxlang.parsetree.hpp"
 #include "maxlang.modtree.hpp"
+#include "maxlang.parsetree.hpp"
+
 
 class maxlang_modulator : public MaxCpp6<maxlang_modulator> {
 public:
 	maxlang_modulator(t_symbol * sym, long ac, t_atom * av) {
 		setupIO(1, 2); // inlets / outlets
+        
+        systhread_mutex_new(&mutx, SYSTHREAD_MUTEX_NORMAL );
+        
 	}
-	~maxlang_modulator() {}
+	~maxlang_modulator() {
+        if(modtor_head)
+            delete modtor_head;
+    }
 	
 	// methods:
 	void bang(long inlet) {
         
         double time = getTack();
+        // mutex lock
+        systhread_mutex_lock(mutx);
         double val = test_lfo.get(time);
+        // mutex unlock
+        systhread_mutex_unlock(mutx);
+        
         pushTack();
         outlet_float(m_outlets[1],time);
         outlet_float(m_outlets[0],val);
@@ -39,36 +51,66 @@ public:
             object_error(&m_ob,"parameter mess need 2 args");
             return;
         }
-        
+
         name = av[0].a_w.w_sym->s_name;
-        switch(av[1].a_type)
+        if (ac==2)
         {
-            case A_LONG:
-                value = av[1].a_w.w_long;
-                break;
-            case A_FLOAT:
-                value = av[1].a_w.w_float;
-                break;
-            case A_SYM:
-                break;
+            switch(av[1].a_type)
+            {
+                case A_LONG:
+                    value = av[1].a_w.w_long;
+                    break;
+                case A_FLOAT:
+                    value = av[1].a_w.w_float;
+                    break;
+                case A_SYM:
+                    break;
+            }
+            systhread_mutex_lock(mutx);
+            if(test_lfo.setparam(name, maxlang::modtor_param(value))==0)
+                object_error(&m_ob, "parameter %s not found",name.c_str());
+            systhread_mutex_unlock(mutx);
         }
-        
-        test_lfo.setparam(name, maxlang::modtor_param(value));
+        if (ac>2)
+        {
+            std::vector<double> input_list;
+            for(int i=1; i<ac; i++)
+            {
+                switch(av[i].a_type)
+                {
+                    case A_LONG:
+                        value = av[i].a_w.w_long;
+                        input_list.push_back(value);
+                        break;
+                    case A_FLOAT:
+                        value = av[i].a_w.w_float;
+                        input_list.push_back(value);
+                        break;
+                    case A_SYM:
+                        break;
+                }
+                
+            }
+            
+            if(input_list.size()>1)
+            {
+                systhread_mutex_lock(mutx);
+                if(test_lfo.setparam(name, maxlang::modtor_param(input_list))==0)
+                    object_error(&m_ob, "parameter %s not found",name.c_str());
+                systhread_mutex_unlock(mutx);
+            }else
+                object_error(&m_ob, "input list is too short for %s",name.c_str());
+            
+        }
         
     }
 	
-	void testfloat(long inlet, double v) {
-		object_post(&m_ob,"inlet %ld float %f", inlet, v);
-		outlet_float(m_outlets[0], v);
-	}
-	
-	void testint(long inlet, long v) {
-		object_post(&m_ob,"inlet %ld int %ld", inlet, v);
-		outlet_int(m_outlets[0], v);
-	}
-	
 	void test(long inlet, t_symbol * s, long ac, t_atom * av) {
-        test_lfo.setparam("max", maxlang::modtor_param(new maxlang::m_randi()));
+        std::string name("max");
+        systhread_mutex_lock(mutx);
+        if(test_lfo.setparam(name, maxlang::modtor_param(new maxlang::m_randi()))==0)
+            object_error(&m_ob, "parameter %s not found",name.c_str());
+        systhread_mutex_unlock(mutx);
 	}
     
     void parse(long inlet, t_symbol * s, long ac, t_atom * av) {
@@ -105,17 +147,17 @@ public:
         }
     }
     catch( const std::exception& e ) {
-        std::cout << "PARSE FAILED WITH EXCEPTION: " << e.what() << std::endl;
+        //std::cout << "PARSE FAILED WITH EXCEPTION: " << e.what() << std::endl;
         object_error(&m_ob, "parse error : %s",e.what());
         return;
         }
         
-        if(name.c_str() != nullptr)
-            outlet_anything(m_outlets[0], gensym(name.c_str()), 0, av);
+        //if(name.c_str() != nullptr)
+            //outlet_anything(m_outlets[0], gensym(name.c_str()), 0, av);
     }
     
-    // TIMING
     
+    // TIMING
     double tick()
     {
         tmpTick = prevTick;
@@ -140,7 +182,11 @@ public:
     std::chrono::high_resolution_clock::time_point tack;
     std::chrono::high_resolution_clock::time_point tmpTick;
     
-    maxlang::m_lfo test_lfo;
+    maxlang::m_seq test_lfo;
+    
+    maxlang::modtor * modtor_head;
+    
+    t_systhread_mutex mutx;
     
 };
 
@@ -148,13 +194,9 @@ C74_EXPORT int main(void) {
 	// create a class with the given name:
 	maxlang_modulator::makeMaxClass("maxlang.modulator");
 	REGISTER_METHOD(maxlang_modulator, bang);
-	REGISTER_METHOD_FLOAT(maxlang_modulator, testfloat);
-	REGISTER_METHOD_LONG(maxlang_modulator, testint);
 	REGISTER_METHOD_GIMME(maxlang_modulator, test);
     REGISTER_METHOD_GIMME(maxlang_modulator, parse);
     REGISTER_METHOD_GIMME(maxlang_modulator, parameter);
 	
-	// these are for handling float/int messages directly (no method name in Max):
-	REGISTER_INLET_FLOAT(maxlang_modulator, testfloat);
-	REGISTER_INLET_LONG(maxlang_modulator, testint);
+
 }
