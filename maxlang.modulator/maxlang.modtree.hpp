@@ -61,6 +61,7 @@ namespace maxlang {
             } else {
                 // found
                 params[name] = value;
+                //std::cout << value._type << std::endl;
             }
             return 1;
         }
@@ -508,7 +509,7 @@ namespace maxlang {
         
         m_choice()
         {
-            m_list = std::vector<double>({0.1,0.3,0.5,0.8});
+            m_list = std::vector<double>({0.,1.});
             m_list_l = m_list.size();
             params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(6.)));
             params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
@@ -587,7 +588,7 @@ namespace maxlang {
         
         m_choicei()
         {
-            m_list = std::vector<double>({0.1,0.3,0.5,0.8});
+            m_list = std::vector<double>({0.,1.});
             m_list_l = m_list.size();
             params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(6.)));
             params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
@@ -919,36 +920,61 @@ namespace maxlang {
         seqi
     };
     
-    modtor_type_enum modtor_create_fromstring(std::string s, modtor * m)
+    modtor_type_enum modtor_create_fromstring(std::string s, modtor *&m)
     {
         if(s == "lfo")
+        {
+            if(m) delete m;
             m = new m_lfo();
             return modtor_type_enum::lfo;
+        }
         if(s == "line")
+        {
+            if(m) delete m;
             m = new m_line();
             return modtor_type_enum::line;
+        }
         if(s == "rand")
+        {
+            if(m) delete m;
             m = new m_rand();
             return modtor_type_enum::rand;
+        }
         if(s == "randi")
+        {
+            if(m) delete m;
             m = new m_randi();
             return modtor_type_enum::randi;
+        }
         if(s == "choice")
+        {
+            if(m) delete m;
             m = new m_choice();
             return modtor_type_enum::choice;
+        }
         if(s == "choicei")
+        {
+            if(m) delete m;
             m = new m_choicei();
             return modtor_type_enum::choicei;
+        }
         if(s == "seq")
+        {
+            if(m) delete m;
             m = new m_seq();
             return modtor_type_enum::seq;
+        }
         if(s == "seqi")
+        {
+            if(m) delete m;
             m = new m_seqi();
             return modtor_type_enum::seqi;
+        }
         
         return modtor_type_enum::unknown;
 
     }
+
 
 }
 

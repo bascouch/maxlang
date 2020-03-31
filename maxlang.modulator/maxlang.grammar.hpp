@@ -28,12 +28,12 @@ namespace maxlang
     // Values
     struct double_value
     : pegtl::sor<
-    pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::plus< pegtl::digit > , pegtl::one<'.'>, pegtl::plus<pegtl::digit> , seps >,
-    pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::one<'.'>, pegtl::plus<pegtl::digit> ,seps>,
-    pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::plus< pegtl::digit > , pegtl::one<'.'> , seps>,
-    pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::plus< pegtl::digit > , seps >
+    pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::plus< pegtl::digit > , pegtl::one<'.'>, pegtl::plus<pegtl::digit> >,
+    pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::one<'.'>, pegtl::plus<pegtl::digit> >,
+    pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::plus< pegtl::digit > , pegtl::one<'.'> >,
+    pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::plus< pegtl::digit > >
     >{};
-    struct int_value : pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::plus< pegtl::digit > , seps> {};
+    struct int_value : pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::plus< pegtl::digit > > {};
     struct bool_value
     : pegtl::sor<
     pegtl::seq<key_bool_true>,
@@ -41,12 +41,12 @@ namespace maxlang
     pegtl::one< '0' >,
     pegtl::one< '1' >
     >{};
-    struct positive_int_value : pegtl::seq< pegtl::opt< pegtl::one< '+' > >, seps, pegtl::plus< pegtl::digit >, seps > {};
+    struct positive_int_value : pegtl::seq< pegtl::opt< pegtl::one< '+' > >, seps, pegtl::plus< pegtl::digit > > {};
     
     
     struct modtor_argument_value;
     
-    struct list_value : pegtl::list<modtor_argument_value, seps> {};
+    struct list_value : pegtl::list<pegtl::sor<double_value,  int_value>, seps> {};
     struct list_expression : pegtl::seq< seps, pegtl::one<'['>, list_value, pegtl::one<']'>, seps > {};
     
     struct litteral : pegtl::plus<pegtl::alpha> {};
@@ -60,7 +60,9 @@ namespace maxlang
     
     struct modtor_argument : pegtl::seq< modtor_argument_name, seps, pegtl::one<'='>, seps, modtor_argument_value, seps > {};
     
-    struct modtor_expression : pegtl::seq<modtor_type, seps, pegtl::one<'('>, seps, pegtl::star<modtor_argument>, seps, pegtl::one<')'>> {};
+    struct modtor_arguments : pegtl::seq<pegtl::one<'('>, seps, pegtl::star<modtor_argument>, seps, pegtl::one<')'>> {};
+    
+    struct modtor_expression : pegtl::seq<modtor_type, seps, modtor_arguments > {};
     
     struct modtor_start : pegtl::must< modtor_expression, seps, pegtl::eolf > {};
     

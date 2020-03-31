@@ -8,6 +8,7 @@
 
 namespace pegtl = tao::pegtl;
 
+
 #include "maxlang.utils.hpp"
 #include "maxlang.grammar.hpp"
 #include "maxlang.modtree.hpp"
@@ -31,9 +32,13 @@ public:
 	void bang(long inlet) {
         
         double time = getTack();
+        double val = 0.;
         // mutex lock
         systhread_mutex_lock(mutx);
-        double val = test_lfo.get(time);
+        if(modtor_head)
+        {
+            val = modtor_head->get(time);
+        }
         // mutex unlock
         systhread_mutex_unlock(mutx);
         
@@ -67,8 +72,9 @@ public:
                     break;
             }
             systhread_mutex_lock(mutx);
-            if(test_lfo.setparam(name, maxlang::modtor_param(value))==0)
-                object_error(&m_ob, "parameter %s not found",name.c_str());
+            if(modtor_head)
+                if(modtor_head->setparam(name, maxlang::modtor_param(value))==0)
+                    object_error(&m_ob, "parameter %s not found",name.c_str());
             systhread_mutex_unlock(mutx);
         }
         if (ac>2)
@@ -95,8 +101,9 @@ public:
             if(input_list.size()>1)
             {
                 systhread_mutex_lock(mutx);
-                if(test_lfo.setparam(name, maxlang::modtor_param(input_list))==0)
-                    object_error(&m_ob, "parameter %s not found",name.c_str());
+                if(modtor_head)
+                    if(modtor_head->setparam(name, maxlang::modtor_param(input_list))==0)
+                        object_error(&m_ob, "parameter %s not found",name.c_str());
                 systhread_mutex_unlock(mutx);
             }else
                 object_error(&m_ob, "input list is too short for %s",name.c_str());
@@ -108,8 +115,9 @@ public:
 	void test(long inlet, t_symbol * s, long ac, t_atom * av) {
         std::string name("max");
         systhread_mutex_lock(mutx);
-        if(test_lfo.setparam(name, maxlang::modtor_param(new maxlang::m_randi()))==0)
-            object_error(&m_ob, "parameter %s not found",name.c_str());
+        if(modtor_head)
+            if(modtor_head->setparam(name, maxlang::modtor_param(new maxlang::m_randi()))==0)
+                object_error(&m_ob, "parameter %s not found",name.c_str());
         systhread_mutex_unlock(mutx);
 	}
     
@@ -141,19 +149,25 @@ public:
         
         if( const auto root = pegtl::parse_tree::parse< maxlang::modtor_start, maxlang::store >(input) ) {
             maxlang::print_node( *root );
+            systhread_mutex_lock(mutx);
+            int ret = maxlang::modtree_make(*root, modtor_head, &m_ob);
+            systhread_mutex_unlock(mutx);
+
+            if(!ret)
+            {
+                object_error(&m_ob, "error making modtree : %s",atoms.c_str());
+                return;
+            }
         }
         else {
             std::cout << "PARSE FAILED" << std::endl;
         }
     }
     catch( const std::exception& e ) {
-        //std::cout << "PARSE FAILED WITH EXCEPTION: " << e.what() << std::endl;
         object_error(&m_ob, "parse error : %s",e.what());
         return;
         }
         
-        //if(name.c_str() != nullptr)
-            //outlet_anything(m_outlets[0], gensym(name.c_str()), 0, av);
     }
     
     
@@ -182,10 +196,8 @@ public:
     std::chrono::high_resolution_clock::time_point tack;
     std::chrono::high_resolution_clock::time_point tmpTick;
     
-    maxlang::m_seq test_lfo;
     
     maxlang::modtor * modtor_head;
-    
     t_systhread_mutex mutx;
     
 };
