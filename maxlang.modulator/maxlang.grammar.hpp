@@ -47,7 +47,7 @@ namespace maxlang
     struct modtor_argument_value;
     
     struct list_value : pegtl::list<pegtl::sor<double_value,  int_value>, seps> {};
-    struct list_expression : pegtl::seq< seps, pegtl::one<'['>, list_value, pegtl::one<']'>, seps > {};
+    struct list_expression : pegtl::seq< seps, pegtl::one<'['>,seps, list_value,seps, pegtl::one<']'>, seps > {};
     
     struct litteral : pegtl::plus<pegtl::alpha> {};
     

@@ -16,7 +16,21 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "2FBBEAD608F335360078DB84"
                BuildableName = "maxlang.modulator.mxo"
-               BlueprintName = "max-external"
+               BlueprintName = "maxlang.modulator"
+               ReferencedContainer = "container:maxlang.modulator.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "563D2D0D243674CF007E2CBF"
+               BuildableName = "maxlang.input.mxo"
+               BlueprintName = "maxlang.input"
                ReferencedContainer = "container:maxlang.modulator.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -29,6 +43,15 @@
       shouldUseLaunchSchemeArgsEnv = "YES">
       <Testables>
       </Testables>
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "2FBBEAD608F335360078DB84"
+            BuildableName = "maxlang.modulator.mxo"
+            BlueprintName = "maxlang.modulator"
+            ReferencedContainer = "container:maxlang.modulator.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
       <AdditionalOptions>
       </AdditionalOptions>
    </TestAction>
@@ -44,6 +67,7 @@
       allowLocationSimulation = "YES">
       <PathRunnable
          runnableDebuggingMode = "0"
+         BundleIdentifier = "com.cycling74.Max"
          FilePath = "/Applications/Max.app">
       </PathRunnable>
       <MacroExpansion>
@@ -51,7 +75,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "2FBBEAD608F335360078DB84"
             BuildableName = "maxlang.modulator.mxo"
-            BlueprintName = "max-external"
+            BlueprintName = "maxlang.modulator"
             ReferencedContainer = "container:maxlang.modulator.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -69,7 +93,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "2FBBEAD608F335360078DB84"
             BuildableName = "maxlang.modulator.mxo"
-            BlueprintName = "max-external"
+            BlueprintName = "maxlang.modulator"
             ReferencedContainer = "container:maxlang.modulator.xcodeproj">
          </BuildableReference>
       </MacroExpansion>

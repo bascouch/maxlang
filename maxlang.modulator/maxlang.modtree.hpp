@@ -38,7 +38,7 @@ namespace maxlang {
         double _value_d;
         int _value_i;
         std::vector<double> _list;
-        modtor * _modtor;
+        modtor * _modtor=0;
         
     };
     
@@ -52,6 +52,8 @@ namespace maxlang {
         {}
         
         virtual double get(double deltatime) = 0;
+        virtual void sync(double phase) = 0;
+        
         
         int setparam(std::string name, modtor_param value)
         {
@@ -60,6 +62,7 @@ namespace maxlang {
                 return 0;
             } else {
                 // found
+                params.erase(name);
                 params[name] = value;
                 //std::cout << value._type << std::endl;
             }
@@ -67,6 +70,7 @@ namespace maxlang {
         }
         
         std::map<std::string, modtor_param> params;
+        std::random_device rd_seed;
 
     private:
         
@@ -101,7 +105,7 @@ namespace maxlang {
         _list = l;
     }
     
-    modtor_param::modtor_param(modtor * m){
+    modtor_param::modtor_param(modtor *m){
         
         _type = modtor_param_type::e_modtor;
         _modtor = m;
@@ -109,6 +113,9 @@ namespace maxlang {
     
     modtor_param::~modtor_param()
     {
+        /*if(_modtor)
+            delete _modtor;
+         */
     }
     
     double modtor_param::get(double deltatime)
@@ -123,7 +130,6 @@ namespace maxlang {
                 return 0.;
             case modtor_param_type::e_modtor:
                 double v = _modtor->get(deltatime);
-                //printf("modtor val : %f\n",v);
                 return v;
         }
         
@@ -139,109 +145,25 @@ namespace maxlang {
         
     }
     
-    
-    class m_line : public modtor {
-        
-    public:
-        
-        m_line()
-        {
-            params.insert(std::pair<std::string, modtor_param>("time",modtor_param(5000.)));
-            params.insert(std::pair<std::string, modtor_param>("varitime",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("min",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
-            
-            
-            mt_gen_time = std::mt19937(std::time(0));
-            mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
-            
-            //
-            segment_scale.setin_minmax(0., 1.);
-            segment_scale.setout_min(0.);
-            segment_scale.setout_max(1.);
-            
-            // start the line
-            phase = -1.;
-            
-        };
-        
-        ~m_line()
-        {
 
-        }
-        
-        double phase = 0.;
-        double m_time = 1000.;
-        double m_curve = 0.;
-        double m_output = 0.;
-        scale_curve segment_scale;
-        std::mt19937 mt_gen_time;
-        std::uniform_real_distribution<double> mt_rand_time;
-        
-        
-        double get(double deltatime) override
-        {
-            // get all the parameters
-            double time = params["time"].get(deltatime);
-            double varitime = params["varitime"].get(deltatime);
-            double min = params["min"].get(deltatime);
-            double max = params["max"].get(deltatime);
-            double curve = params["curve"].get(deltatime);
-            
-            //printf("get line\n");
-            
-            if (phase < 0.) // start the line
-            {
-                // choose time
-                m_time = time + exp2(mt_rand_time(mt_gen_time)*varitime);
-                // sample curve param
-                m_curve=curve;
-                segment_scale.setin_minmax(0., m_time);
-                segment_scale.setcurve(m_curve);
-                segment_scale.setout_min(min);
-                segment_scale.setout_max(max);
-                
-                phase = 0;
-                m_output = min;
-                
-
-            }
-            else if(phase <= m_time)
-            {
-                segment_scale.setout_min(min);
-                segment_scale.setout_max(max);
-                
-                phase += deltatime;
-                //printf("phase %f\n",phase);
-                m_output = std::clamp(segment_scale.apply(phase),min,max);
-                
-            }
-            
-            return m_output;
-            
-        }
-    };
-    
     class m_lfo : public modtor {
         
     public:
         
-        m_lfo()
+        m_lfo(double from)
         {
             params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(0.6)));
             params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("mode",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("pw",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("min",modtor_param(0.)));
-            //params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("max",modtor_param(new m_line())));
+            params.insert(std::pair<std::string, modtor_param>("min",modtor_param(from)));
+            params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
             
             
-            mt_gen = std::mt19937(std::time(0));
+            mt_gen = std::mt19937(rd_seed());
             mt_rand = std::uniform_real_distribution<double>(-1.,1.);
-
+            
             //
             output_scale.setin_minmax(-1., 1.);
             
@@ -249,7 +171,7 @@ namespace maxlang {
         
         ~m_lfo()
         {
-
+            params.clear();
         }
         
         double phase = 1.;
@@ -261,7 +183,12 @@ namespace maxlang {
         scale_curve output_scale;
         std::mt19937 mt_gen;
         std::uniform_real_distribution<double> mt_rand;
-
+        
+        void sync(double _phase) override
+        {
+            phase = _phase;
+        }
+        
         double wave(double phase, double mode, double pw )
         {
             // mode : lfo-sine lfo-rect lfo-sawup lfo-sawdown lfo-tri
@@ -336,12 +263,99 @@ namespace maxlang {
             return output_scale.apply(w);
         }
     };
+    
+    
+    class m_line : public modtor {
+        
+    public:
+        
+        m_line(double from)
+        {
+            params.insert(std::pair<std::string, modtor_param>("time",modtor_param(5000.)));
+            params.insert(std::pair<std::string, modtor_param>("varitime",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("min",modtor_param(from)));
+            params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
+            
+            
+            mt_gen_time = std::mt19937(rd_seed());
+            mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
+            
+            //
+            segment_scale.setin_minmax(0., 1.);
+            segment_scale.setout_min(0.);
+            segment_scale.setout_max(1.);
+            
+            // start the line
+            phase = -1.;
+            
+        };
+        
+        ~m_line()
+        {
+            params.clear();
+        }
+        
+        double phase = 0;
+        double m_time = 1000.;
+        double m_curve = 0.;
+        double m_output = 0.;
+        scale_curve segment_scale;
+        std::mt19937 mt_gen_time;
+        std::uniform_real_distribution<double> mt_rand_time;
+        
+        void sync(double _phase) override
+        {
+            phase = _phase;
+        }
+        
+        double get(double deltatime) override
+        {
+            // get all the parameters
+            double time = params["time"].get(deltatime);
+            double varitime = params["varitime"].get(deltatime);
+            double min = params["min"].get(deltatime);
+            double max = params["max"].get(deltatime);
+            double curve = params["curve"].get(deltatime);
+                        
+            if (phase < 0.) // start the line
+            {
+                // choose time
+                m_time = time * exp2(mt_rand_time(mt_gen_time)*varitime);
+                // sample curve param
+                m_curve=curve;
+                segment_scale.setin_minmax(0., m_time);
+                segment_scale.setout_min(min);
+                segment_scale.setout_max(max);
+                segment_scale.setcurve(m_curve);
+                
+                phase = 0;
+                m_output = min;
+                
+
+            }
+            else if(phase <= m_time)
+            {
+                segment_scale.setout_min(min);
+                segment_scale.setout_max(max);
+                
+                phase += deltatime;
+                //printf("phase %f\n",phase);
+                m_output = std::clamp(segment_scale.apply(phase),min,max);
+                
+            }
+            
+            return m_output;
+            
+        }
+    };
+    
 
     class m_randi : public modtor {
         
     public:
         
-        m_randi()
+        m_randi(double from)
         {
             params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(6.)));
             params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
@@ -351,11 +365,14 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("segcurve",modtor_param(0.)));
             
+            //m_rand_prev = from;
+            //m_rand_target = from;
             
-            mt_gen_time = std::mt19937(std::time(0));
+            
+            mt_gen_time = std::mt19937(rd_seed());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
             
-            mt_gen_val = std::mt19937(std::time(0));
+            mt_gen_val = std::mt19937(rd_seed());
             mt_rand_val = std::uniform_real_distribution<double>(-1.,1.);
             
             //
@@ -369,7 +386,7 @@ namespace maxlang {
         
         ~m_randi()
         {
-
+            params.clear();
         }
         
         double phase = 1.;
@@ -382,6 +399,10 @@ namespace maxlang {
         std::mt19937 mt_gen_time, mt_gen_val;
         std::uniform_real_distribution<double> mt_rand_time, mt_rand_val;
         
+        void sync(double _phase) override
+        {
+            phase = _phase;
+        }
         
         double get(double deltatime) override
         {
@@ -427,7 +448,7 @@ namespace maxlang {
         
     public:
         
-        m_rand()
+        m_rand(double from)
         {
             params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(6.)));
             params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
@@ -436,11 +457,13 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
             
+            //m_rand_prev = from;
+            //m_rand_target = from;
             
-            mt_gen_time = std::mt19937(std::time(0));
+            mt_gen_time = std::mt19937(rd_seed());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
             
-            mt_gen_val = std::mt19937(std::time(0));
+            mt_gen_val = std::mt19937(rd_seed());
             mt_rand_val = std::uniform_real_distribution<double>(-1.,1.);
             
             //
@@ -454,7 +477,7 @@ namespace maxlang {
         
         ~m_rand()
         {
-
+            params.clear();
         }
         
         double phase = 1.;
@@ -466,6 +489,10 @@ namespace maxlang {
         std::mt19937 mt_gen_time, mt_gen_val;
         std::uniform_real_distribution<double> mt_rand_time, mt_rand_val;
         
+        void sync(double _phase) override
+        {
+            phase = _phase;
+        }
         
         double get(double deltatime) override
         {
@@ -507,7 +534,7 @@ namespace maxlang {
         
     public:
         
-        m_choice()
+        m_choice(double from)
         {
             m_list = std::vector<double>({0.,1.});
             m_list_l = m_list.size();
@@ -517,17 +544,17 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
             
-            mt_gen_time = std::mt19937(std::time(0));
+            mt_gen_time = std::mt19937(rd_seed());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
             
-            mt_gen_val = std::mt19937(std::time(0));
+            mt_gen_val = std::mt19937(rd_seed());
             mt_rand_val = std::uniform_real_distribution<double>(0.,0.99);
             
         };
         
         ~m_choice()
         {
-
+            params.clear();
         }
         
         double phase = 1.;
@@ -542,6 +569,10 @@ namespace maxlang {
         std::mt19937 mt_gen_time, mt_gen_val;
         std::uniform_real_distribution<double> mt_rand_time, mt_rand_val;
         
+        void sync(double _phase) override
+        {
+            phase = _phase;
+        }
         
         double get(double deltatime) override
         {
@@ -586,7 +617,7 @@ namespace maxlang {
         
     public:
         
-        m_choicei()
+        m_choicei(double from)
         {
             m_list = std::vector<double>({0.,1.});
             m_list_l = m_list.size();
@@ -598,10 +629,10 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("segcurve",modtor_param(0.)));
 
             
-            mt_gen_time = std::mt19937(std::time(0));
+            mt_gen_time = std::mt19937(rd_seed());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
             
-            mt_gen_val = std::mt19937(std::time(0));
+            mt_gen_val = std::mt19937(rd_seed());
             mt_rand_val = std::uniform_real_distribution<double>(0.,0.99);
             
             segment_scale.setin_minmax(0., 1.);
@@ -612,7 +643,7 @@ namespace maxlang {
         
         ~m_choicei()
         {
-
+            params.clear();
         }
         
         double phase = 1.;
@@ -629,6 +660,10 @@ namespace maxlang {
         std::mt19937 mt_gen_time, mt_gen_val;
         std::uniform_real_distribution<double> mt_rand_time, mt_rand_val;
         
+        void sync(double _phase) override
+        {
+            phase = _phase;
+        }
         
         double get(double deltatime) override
         {
@@ -678,7 +713,7 @@ namespace maxlang {
         
     public:
         
-        m_seqi()
+        m_seqi(double from)
         {
             m_list = std::vector<double>({0.1,0.3,0.5,0.8});
             m_list_l = m_list.size();
@@ -692,7 +727,7 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("loop",modtor_param(1)));
             
             
-            mt_gen_time = std::mt19937(std::time(0));
+            mt_gen_time = std::mt19937(rd_seed());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
 
             segment_scale.setin_minmax(0., 1.);
@@ -703,7 +738,7 @@ namespace maxlang {
         
         ~m_seqi()
         {
-
+            params.clear();
         }
         
         double phase = 1.;
@@ -722,6 +757,10 @@ namespace maxlang {
         std::mt19937 mt_gen_time;
         std::uniform_real_distribution<double> mt_rand_time;
         
+        void sync(double _phase) override
+        {
+            phase = _phase;
+        }
         
         double get(double deltatime) override
         {
@@ -803,7 +842,7 @@ namespace maxlang {
         
     public:
         
-        m_seq()
+        m_seq(double from)
         {
             m_list = std::vector<double>({0.1,0.3,0.5,0.8});
             m_list_l = m_list.size();
@@ -816,14 +855,14 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("loop",modtor_param(1)));
             
             
-            mt_gen_time = std::mt19937(std::time(0));
+            mt_gen_time = std::mt19937(rd_seed());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
             
         };
         
         ~m_seq()
         {
-
+            params.clear();
         }
         
         double phase = 1.;
@@ -839,6 +878,10 @@ namespace maxlang {
         std::mt19937 mt_gen_time;
         std::uniform_real_distribution<double> mt_rand_time;
         
+        void sync(double _phase) override
+        {
+            phase = _phase;
+        }
         
         double get(double deltatime) override
         {
@@ -908,6 +951,115 @@ namespace maxlang {
         }
     };
     
+    class m_input : public modtor {
+        
+    public:
+        
+        m_input(double from)
+        {
+            
+            params.insert(std::pair<std::string, modtor_param>("in",modtor_param(from)));
+            params.insert(std::pair<std::string, modtor_param>("min",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
+            
+            output_scale.setin_minmax(0., 1.);
+        };
+        
+        ~m_input()
+        {
+            params.clear();
+        }
+        
+        double m_curve = 0.;
+        scale_curve output_scale;
+        
+        
+        void sync(double _phase) override
+        {
+            
+        }
+        
+        double get(double deltatime) override
+        {
+            // get all the parameters
+            double min = params["min"].get(deltatime);
+            double max = params["max"].get(deltatime);
+            double curve = params["curve"].get(deltatime);
+            
+
+            
+            output_scale.setout_min(min);
+            output_scale.setout_max(max);
+            output_scale.setcurve(m_curve);
+            
+            double w = wave(phase, mode, m_pw);
+            return output_scale.apply(w);
+        }
+    };
+    
+    class m_xfade : public modtor {
+        
+    public:
+        
+        m_xfade(double from)
+        {
+
+            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(from)));
+            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(1)));
+            params.insert(std::pair<std::string, modtor_param>("fade",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("fadecurve",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
+            
+            segment_scale.setin_minmax(0., 1.);
+            segment_scale.setout_min(0.);
+            segment_scale.setout_max(1.);
+        };
+        
+        ~m_xfade()
+        {
+            params.clear();
+        }
+        
+        double m_fade1 = 1.;
+        double m_fade2 = 0.;
+        double m_curve = 0.;
+        double m_val = 0.;
+        scale_curve segment_scale;
+
+        
+        void sync(double _phase) override
+        {
+    
+        }
+        
+        double get(double deltatime) override
+        {
+            // get all the parameters
+            double in1 = params["a"].get(deltatime);
+            double in2 = params["b"].get(deltatime);
+            double mul = params["mul"].get(deltatime);
+            double add = params["add"].get(deltatime);
+            double fade = std::clamp(params["fade"].get(deltatime),0.,1.);
+            double fadecurve = std::clamp(params["fadecurve"].get(deltatime),-1.04,1.04);
+            
+            // fadecurve = 0 : linear
+            // fadecurve = 1 : tight (square)
+
+            
+            segment_scale.setcurve(fadecurve);
+            //m_fade1 = std::clamp((((1-fade)-0.5)*(1./(1.-fadecurve)))+0.5,0.,1.);
+            m_fade2 = fade;
+            m_fade1 = 1.- m_fade2;
+                
+            m_val = (segment_scale.apply(m_fade1) * in1) + (segment_scale.apply(m_fade2) * in2);
+            
+            return add+(m_val*mul);
+        }
+    };
+    
+    
     enum modtor_type_enum{
         unknown,
         lfo,
@@ -917,58 +1069,75 @@ namespace maxlang {
         choice,
         choicei,
         seq,
-        seqi
+        seqi,
+        input,
+        xfade
     };
     
-    modtor_type_enum modtor_create_fromstring(std::string s, modtor *&m)
+    modtor_type_enum modtor_create_fromstring(std::string s, modtor *&m, double from)
     {
         if(s == "lfo")
         {
             if(m) delete m;
-            m = new m_lfo();
+            m = new m_lfo(from);
             return modtor_type_enum::lfo;
         }
         if(s == "line")
         {
             if(m) delete m;
-            m = new m_line();
+            m = new m_line(from);
             return modtor_type_enum::line;
         }
+
         if(s == "rand")
         {
             if(m) delete m;
-            m = new m_rand();
+            m = new m_rand(from);
             return modtor_type_enum::rand;
         }
         if(s == "randi")
         {
             if(m) delete m;
-            m = new m_randi();
+            m = new m_randi(from);
             return modtor_type_enum::randi;
         }
         if(s == "choice")
         {
             if(m) delete m;
-            m = new m_choice();
+            m = new m_choice(from);
             return modtor_type_enum::choice;
         }
         if(s == "choicei")
         {
             if(m) delete m;
-            m = new m_choicei();
+            m = new m_choicei(from);
             return modtor_type_enum::choicei;
         }
         if(s == "seq")
         {
             if(m) delete m;
-            m = new m_seq();
+            m = new m_seq(from);
             return modtor_type_enum::seq;
         }
         if(s == "seqi")
         {
             if(m) delete m;
-            m = new m_seqi();
+            m = new m_seqi(from);
             return modtor_type_enum::seqi;
+        }
+        
+        if(s == "xfade")
+        {
+            if(m) delete m;
+            m = new m_xfade(from);
+            return modtor_type_enum::xfade;
+        }
+        
+        if(s == "input")
+        {
+            if(m) delete m;
+            m = new m_input(from);
+            return modtor_type_enum::input;
         }
         
         return modtor_type_enum::unknown;
