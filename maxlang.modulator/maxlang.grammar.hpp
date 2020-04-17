@@ -51,7 +51,7 @@ namespace maxlang
     
     struct litteral : pegtl::plus<pegtl::alpha> {};
     
-    struct lidentifier : pegtl::plus<pegtl::sor<pegtl::alnum,pegtl::one<'-'>,pegtl::one<'_'>,pegtl::one<'.'>>> {};
+    struct lidentifier : pegtl::plus<pegtl::sor<pegtl::alnum,pegtl::one<'-'>,pegtl::one<'_'>>> {};
     
     // modtor specific
     struct modtor_expression;
@@ -67,6 +67,8 @@ namespace maxlang
     struct modtor_expression : pegtl::seq<modtor_type, seps, modtor_arguments > {};
     
     struct modtor_start : pegtl::must< modtor_expression, seps, pegtl::eolf > {};
+    
+    struct modtor_argument_value_start : pegtl::must< modtor_argument_value, seps, pegtl::eolf > {};
     
     
 }  // namespace maxlang

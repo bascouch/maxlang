@@ -28,12 +28,14 @@ namespace maxlang {
         modtor_param(std::vector<double> l);
         modtor_param(modtor * m);
         modtor_param(std::string s);
+        
         ~modtor_param();
         
         double get(double deltatime);
         void set(double value);
         std::vector<double> getlist();
         std::string getstring();
+        modtor* getmodtor();
         
         modtor_param_type _type;
         
@@ -56,10 +58,25 @@ namespace maxlang {
         
         virtual double get(double deltatime) = 0;
         virtual void sync(double phase) = 0;
+        virtual void seed(std::string seed_string) = 0;
         
         
         int setparam(std::string name, modtor_param value)
         {
+            // check if param is a refname
+            if(name=="name")
+            {
+                modtor_refname = value.getstring();
+                params[name] = value;
+                return 1;
+            }
+            // commin seed param
+            if(name=="seed")
+            {
+                params[name] = value;
+                return 1;
+            }
+            // else specific modtor param
             if ( params.find(name) == params.end() )
             { // not found
                 return 0;
@@ -72,8 +89,33 @@ namespace maxlang {
             return 1;
         }
         
+        int traverse_for_ref(std::map<std::string,maxlang::modtor*> &name_ref)
+        {
+            for (std::map<std::string, modtor_param>::iterator it=params.begin(); it!=params.end(); ++it)
+            {
+                if( it->first == "name" )
+                {
+                    std::string param_value = it->second.getstring();
+                    name_ref.insert(std::pair<std::string,maxlang::modtor*>(param_value, this));
+                }
+                else // check if modtor has a sub-modtor
+                {
+                    if(it->second._type == modtor_param_type::e_modtor)
+                    {
+                        modtor * sub_modtor = it->second.getmodtor();
+                        int ret;
+                        // RECURSE
+                        ret = sub_modtor->traverse_for_ref(name_ref);
+                    }
+                }
+            }
+            return 1; // ;)
+        }
+        
         std::map<std::string, modtor_param> params;
-        std::random_device rd_seed;
+        std::random_device rd_dev;
+        std::seed_seq rd_seed;
+        std::string modtor_refname;
 
     private:
         
@@ -157,6 +199,11 @@ namespace maxlang {
         return _string;
     }
     
+    modtor* modtor_param::getmodtor()
+    {
+        return _modtor;
+    }
+    
     void modtor_param::set(double value)
     {
         _value_d=value;
@@ -179,7 +226,7 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
             
             
-            mt_gen = std::mt19937(rd_seed());
+            mt_gen = std::mt19937(rd_dev());
             mt_rand = std::uniform_real_distribution<double>(-1.,1.);
             
             //
@@ -201,6 +248,15 @@ namespace maxlang {
         scale_curve output_scale;
         std::mt19937 mt_gen;
         std::uniform_real_distribution<double> mt_rand;
+        
+        void seed(std::string seed_str) override
+        {
+            // for time randomization : reverse string
+            std::reverse(seed_str.begin(),seed_str.end());
+            
+            std::seed_seq rd_seed(seed_str.begin(),seed_str.end());
+            mt_gen = std::mt19937(rd_seed);
+        }
         
         void sync(double _phase) override
         {
@@ -296,7 +352,7 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
             
             
-            mt_gen_time = std::mt19937(rd_seed());
+            mt_gen_time = std::mt19937(rd_dev());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
             
             //
@@ -321,6 +377,14 @@ namespace maxlang {
         scale_curve segment_scale;
         std::mt19937 mt_gen_time;
         std::uniform_real_distribution<double> mt_rand_time;
+        
+        void seed(std::string seed_str) override
+        {
+            // for time randomization : reverse string
+            std::reverse(seed_str.begin(),seed_str.end());
+            std::seed_seq rd_seed(seed_str.begin(),seed_str.end());
+            mt_gen_time = std::mt19937(rd_seed);
+        }
         
         void sync(double _phase) override
         {
@@ -391,10 +455,10 @@ namespace maxlang {
             //m_rand_target = from;
             
             
-            mt_gen_time = std::mt19937(rd_seed());
+            mt_gen_time = std::mt19937(rd_dev());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
             
-            mt_gen_val = std::mt19937(rd_seed());
+            mt_gen_val = std::mt19937(rd_dev());
             mt_rand_val = std::uniform_real_distribution<double>(-1.,1.);
             
             //
@@ -420,6 +484,15 @@ namespace maxlang {
         scale_curve output_scale, segment_scale;
         std::mt19937 mt_gen_time, mt_gen_val;
         std::uniform_real_distribution<double> mt_rand_time, mt_rand_val;
+        
+        void seed(std::string seed_str) override
+        {
+            std::seed_seq rd_seed(seed_str.begin(),seed_str.end());
+            mt_gen_time = std::mt19937(rd_seed);
+            
+            mt_gen_val = std::mt19937(rd_seed);
+            
+        }
         
         void sync(double _phase) override
         {
@@ -482,10 +555,10 @@ namespace maxlang {
             //m_rand_prev = from;
             //m_rand_target = from;
             
-            mt_gen_time = std::mt19937(rd_seed());
+            mt_gen_time = std::mt19937(rd_dev());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
             
-            mt_gen_val = std::mt19937(rd_seed());
+            mt_gen_val = std::mt19937(rd_dev());
             mt_rand_val = std::uniform_real_distribution<double>(-1.,1.);
             
             //
@@ -510,6 +583,17 @@ namespace maxlang {
         scale_curve output_scale, segment_scale;
         std::mt19937 mt_gen_time, mt_gen_val;
         std::uniform_real_distribution<double> mt_rand_time, mt_rand_val;
+        
+        void seed(std::string seed_str) override
+        {
+            std::seed_seq rd_seed_val(seed_str.begin(),seed_str.end());
+            // for time randomization : reverse string
+            std::reverse(seed_str.begin(),seed_str.end());
+            std::seed_seq rd_seed_time(seed_str.begin(),seed_str.end());
+            
+            mt_gen_val = std::mt19937(rd_seed_val);
+            mt_gen_time = std::mt19937(rd_seed_time);
+        }
         
         void sync(double _phase) override
         {
@@ -566,10 +650,10 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
             
-            mt_gen_time = std::mt19937(rd_seed());
+            mt_gen_time = std::mt19937(rd_dev());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
             
-            mt_gen_val = std::mt19937(rd_seed());
+            mt_gen_val = std::mt19937(rd_dev());
             mt_rand_val = std::uniform_real_distribution<double>(0.,0.99);
             
         };
@@ -590,6 +674,17 @@ namespace maxlang {
         int m_list_l;
         std::mt19937 mt_gen_time, mt_gen_val;
         std::uniform_real_distribution<double> mt_rand_time, mt_rand_val;
+        
+        void seed(std::string seed_str) override
+        {
+            std::seed_seq rd_seed_val(seed_str.begin(),seed_str.end());
+            // for time randomization : reverse string
+            std::reverse(seed_str.begin(),seed_str.end());
+            std::seed_seq rd_seed_time(seed_str.begin(),seed_str.end());
+            
+            mt_gen_val = std::mt19937(rd_seed_val);
+            mt_gen_time = std::mt19937(rd_seed_time);
+        }
         
         void sync(double _phase) override
         {
@@ -651,10 +746,10 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("segcurve",modtor_param(0.)));
 
             
-            mt_gen_time = std::mt19937(rd_seed());
+            mt_gen_time = std::mt19937(rd_dev());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
             
-            mt_gen_val = std::mt19937(rd_seed());
+            mt_gen_val = std::mt19937(rd_dev());
             mt_rand_val = std::uniform_real_distribution<double>(0.,0.99);
             
             segment_scale.setin_minmax(0., 1.);
@@ -681,6 +776,17 @@ namespace maxlang {
         int m_list_l;
         std::mt19937 mt_gen_time, mt_gen_val;
         std::uniform_real_distribution<double> mt_rand_time, mt_rand_val;
+        
+        void seed(std::string seed_str) override
+        {
+            std::seed_seq rd_seed_val(seed_str.begin(),seed_str.end());
+            // for time randomization : reverse string
+            std::reverse(seed_str.begin(),seed_str.end());
+            std::seed_seq rd_seed_time(seed_str.begin(),seed_str.end());
+            
+            mt_gen_val = std::mt19937(rd_seed_val);
+            mt_gen_time = std::mt19937(rd_seed_time);
+        }
         
         void sync(double _phase) override
         {
@@ -749,7 +855,7 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("loop",modtor_param(1)));
             
             
-            mt_gen_time = std::mt19937(rd_seed());
+            mt_gen_time = std::mt19937(rd_dev());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
 
             segment_scale.setin_minmax(0., 1.);
@@ -778,6 +884,15 @@ namespace maxlang {
         int m_list_l;
         std::mt19937 mt_gen_time;
         std::uniform_real_distribution<double> mt_rand_time;
+        
+        void seed(std::string seed_str) override
+        {
+            // for time randomization : reverse string
+            std::reverse(seed_str.begin(),seed_str.end());
+            std::seed_seq rd_seed_time(seed_str.begin(),seed_str.end());
+            
+            mt_gen_time = std::mt19937(rd_seed_time);
+        }
         
         void sync(double _phase) override
         {
@@ -877,7 +992,7 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("loop",modtor_param(1)));
             
             
-            mt_gen_time = std::mt19937(rd_seed());
+            mt_gen_time = std::mt19937(rd_dev());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
             
         };
@@ -899,6 +1014,15 @@ namespace maxlang {
         int m_list_l;
         std::mt19937 mt_gen_time;
         std::uniform_real_distribution<double> mt_rand_time;
+        
+        void seed(std::string seed_str) override
+        {
+            // for time randomization : reverse string
+            std::reverse(seed_str.begin(),seed_str.end());
+            std::seed_seq rd_seed_time(seed_str.begin(),seed_str.end());
+            
+            mt_gen_time = std::mt19937(rd_seed_time);
+        }
         
         void sync(double _phase) override
         {
@@ -991,7 +1115,7 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("loop",modtor_param(0)));
             
             
-            mt_gen_time = std::mt19937(rd_seed());
+            mt_gen_time = std::mt19937(rd_dev());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
             
             segment_scale.setin_minmax(0., 1.);
@@ -1029,6 +1153,15 @@ namespace maxlang {
         int m_seg_l;
         std::mt19937 mt_gen_time;
         std::uniform_real_distribution<double> mt_rand_time;
+        
+        void seed(std::string seed_str) override
+        {
+            // for time randomization : reverse string
+            std::reverse(seed_str.begin(),seed_str.end());
+            std::seed_seq rd_seed_time(seed_str.begin(),seed_str.end());
+            
+            mt_gen_time = std::mt19937(rd_seed_time);
+        }
         
         void sync(double _phase) override
         {
@@ -1192,6 +1325,11 @@ namespace maxlang {
         t_dictionary * m_dict;
         t_symbol * m_val_sym, * m_min_sym, * m_max_sym;
         
+        void seed(std::string seed_str) override
+        {
+
+        }
+        
         void sync(double _phase) override
         {
             
@@ -1265,10 +1403,12 @@ namespace maxlang {
         double m_val = 0.;
         scale_curve segment_scale;
 
+        void seed(std::string seed_str) override
+        {
+        }
         
         void sync(double _phase) override
         {
-    
         }
         
         double get(double deltatime) override

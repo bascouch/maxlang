@@ -160,7 +160,8 @@ namespace maxlang {
                 double v = stod(value_node->string());
                 _modtor_param = new modtor_param(v);
                 _modtor->setparam(name, *_modtor_param);
-
+                if(name=="seed")
+                    _modtor->seed(value_node->string());
                 return 1;
             }
             else if (value_node->type == "maxlang::int_value")
@@ -168,6 +169,8 @@ namespace maxlang {
                 int v = stoi(value_node->string());
                 _modtor_param = new modtor_param(v);
                 _modtor->setparam(name, *_modtor_param);
+                if(name=="seed")
+                    _modtor->seed(value_node->string());
                 return 1;
             }
             else if (value_node->type == "maxlang::list_expression")
@@ -206,6 +209,8 @@ namespace maxlang {
                 std::string ident = value_node->string();
                 _modtor_param = new modtor_param(ident);
                 _modtor->setparam(name, *_modtor_param);
+                if(name=="seed")
+                    _modtor->seed(ident);
                 return 1;
             }
         }
@@ -231,6 +236,12 @@ namespace maxlang {
             
             std::string name = name_node->string();
             maxlang::modtor_param * value;
+            
+            // name : special modtor argument to ref a specific sub-modtor
+            if(name == "name")
+            {
+                
+            }
             
             // get into value node
             if(modtree_parse_modtor_param_value(*value_node,_modtor,name,value,m_ob))
@@ -269,6 +280,31 @@ namespace maxlang {
         if(modtor_node->type == "maxlang::modtor_expression")
         {
             return modtree_parse_modtor(*modtor_node,modtor,m_ob,from_value);
+        }
+        return 1;
+    }
+    
+    // construct the modtor argument value tree
+    int valtree_make( const pegtl::parse_tree::node& n, modtor *&modtor, std::string arg_name, t_object * m_ob, double from_value)
+    {
+        // detect the root node:
+        if( !n.is_root() ) {
+            return 0;
+        }
+        
+        // get into child which should be maxlang::modtor_expression
+        if( n.children.empty() || n.children.size()<1 ) {
+            return 0;
+        }
+        
+        pegtl::parse_tree::node *value_node = n.children[0].get();
+        
+        maxlang::modtor_param * value;
+        
+        if(value_node->type == "maxlang::modtor_argument_value")
+        {
+            //     int modtree_parse_modtor_param_value(const pegtl::parse_tree::node& n, modtor *&_modtor, std::string name, modtor_param *&_modtor_param, t_object * m_ob)
+            return modtree_parse_modtor_param_value(*value_node,modtor,arg_name,value,m_ob);
         }
         return 1;
     }
