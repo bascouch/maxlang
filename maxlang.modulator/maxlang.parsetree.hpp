@@ -86,6 +86,7 @@ namespace maxlang {
     template<> struct store<int_value> : std::true_type {};
     template<> struct store<positive_int_value> : std::false_type {};
     template<> struct store<modtor_expression> : std::true_type {};
+    template<> struct store<lidentifier> : std::true_type {};
     template<> struct store<modtor_type> : std::true_type {};
     template<> struct store<modtor_arguments> : std::true_type {};
     template<> struct store<modtor_argument> : std::true_type {};
@@ -200,8 +201,12 @@ namespace maxlang {
                     object_error(m_ob, "unknown modtor_param value type");
                     return 0;
                 }
-            }else {
-                object_error(m_ob, "error parsing children modtor");
+            }else if (value_node->type == "maxlang::lidentifier")
+            {
+                std::string ident = value_node->string();
+                _modtor_param = new modtor_param(ident);
+                _modtor->setparam(name, *_modtor_param);
+                return 1;
             }
         }
         else {

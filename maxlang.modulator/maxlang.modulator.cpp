@@ -23,7 +23,7 @@ public:
 	maxlang_modulator(t_symbol * sym, long ac, t_atom * av) {
 		setupIO(1, 2); // inlets / outlets
         
-        systhread_mutex_new(&mutx, SYSTHREAD_MUTEX_NORMAL );
+        systhread_mutex_new(&mutx, SYSTHREAD_MUTEX_NORMAL);
         // create clock
         //m_clock = clock_new(m_ob, (void (maxlang_modulator::*)(t_object*)) clock_tick)); // make a clock
 
@@ -119,9 +119,10 @@ public:
         
     }
     
+    
     void sync(long inlet, t_symbol * s, long ac, t_atom * av) {
-        double phase=-0.00001;
         
+        double phase=-0.00001;
         if(ac> 0)
             switch(av[1].a_type)
             {
@@ -149,6 +150,13 @@ public:
         systhread_mutex_unlock(mutx);
 	}
     
+    void verbose(long inlet, t_symbol * s, long ac, t_atom * av) {
+        if(ac>=1 && av[0].a_type == A_LONG)
+        {
+            m_verbose = av[0].a_w.w_long;
+        }
+    }
+    
     void parse(long inlet, t_symbol * s, long ac, t_atom * av) {
         std::string name;
         std::string atoms;
@@ -169,13 +177,14 @@ public:
                     atoms += " ";
                     break;
             }
-        
-        object_post(&m_ob, "parsing %s",atoms.c_str());
+        if(m_verbose)
+            object_post(&m_ob, "parsing %s",atoms.c_str());
         try {
             pegtl::string_input input( atoms, std::string("input"));
         
             if( const auto root = pegtl::parse_tree::parse< maxlang::modtor_start, maxlang::store >(input) ) {
-                maxlang::print_node( *root );
+                if(m_verbose)
+                    maxlang::print_node( *root );
                 systhread_mutex_lock(mutx);
                 int ret = maxlang::modtree_make(*root, modtor_head, &m_ob, val);
                 systhread_mutex_unlock(mutx);
@@ -254,6 +263,15 @@ public:
                         _modtor_param = new maxlang::modtor_param(v);
                         returned_modtor->setparam(name, *_modtor_param);
 
+                    }else if (atoms[0].a_type == A_SYM)
+                    {
+                        char * s = atoms[0].a_w.w_sym->s_name;
+                        if(s)
+                        {
+                            _modtor_param = new maxlang::modtor_param(s);
+                            returned_modtor->setparam(name, *_modtor_param);
+                        }
+                        
                     }else if (atoms[0].a_type == A_OBJ)
                     {
                         t_dictionary * dchild;
@@ -349,7 +367,7 @@ public:
     
     
     // CLOCKING
-   /* void clock_start()
+    /* void clock_start()
     {
         clock_fdelay(m_clock,0.);
     }
@@ -376,27 +394,46 @@ public:
     double tick()
     {
         tmpTick = prevTick;
-        prevTick = std::chrono::high_resolution_clock::now();
-        
-        auto duration = prevTick - tmpTick;
-        return  std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
+        if(use_system_clock)
+        {
+            std_prevTick = std::chrono::high_resolution_clock::now();
+            
+            auto duration = std_prevTick - std_tmpTick;
+            return  std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
+        }
+        else
+        {
+            prevTick = (double) gettime();
+            return prevTick - tmpTick;
+        }
     }
     
     double getTack()
     {
-        return  std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - tack).count()/1000.;
+        if(use_system_clock)
+            return  std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - std_tack).count()/1000.;
+        else
+            return gettime() - tack;
     }
     
     void pushTack()
     {
-        tack = std::chrono::high_resolution_clock::now();
+        if(use_system_clock)
+            std_tack = std::chrono::high_resolution_clock::now();
+        else
+            tack = gettime();
     }
     
     // members
-    std::chrono::high_resolution_clock::time_point prevTick = std::chrono::high_resolution_clock::now();
-    std::chrono::high_resolution_clock::time_point tack;
-    std::chrono::high_resolution_clock::time_point tmpTick;
+    std::chrono::high_resolution_clock::time_point std_prevTick = std::chrono::high_resolution_clock::now();
+    std::chrono::high_resolution_clock::time_point std_tack;
+    std::chrono::high_resolution_clock::time_point std_tmpTick;
     
+    double prevTick;
+    double tack;
+    double tmpTick;
+    
+    int use_system_clock=0;
     
     maxlang::modtor * modtor_head;
     t_systhread_mutex mutx;
@@ -406,6 +443,8 @@ public:
     void *m_clock;
     double m_interval;
     
+    int m_verbose=0;
+    
 };
 
 C74_EXPORT int main(void) {
@@ -413,12 +452,11 @@ C74_EXPORT int main(void) {
 	maxlang_modulator::makeMaxClass("maxlang.modulator");
 	REGISTER_METHOD(maxlang_modulator, bang);
 	REGISTER_METHOD_GIMME(maxlang_modulator, test);
+    REGISTER_METHOD_GIMME(maxlang_modulator, verbose);
     REGISTER_METHOD_GIMME(maxlang_modulator, parse);
     REGISTER_METHOD_GIMME(maxlang_modulator, parameter);
     REGISTER_METHOD_GIMME(maxlang_modulator, sync);
-    // dictionary
     REGISTER_METHOD_GIMME(maxlang_modulator, dictionary);
-    
     REGISTER_METHOD(maxlang_modulator, clear);
 	
 

@@ -32,7 +32,6 @@
 		2FBBEAE508F335360078DB84 /* maxlang.modulator.mxo */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = maxlang.modulator.mxo; sourceTree = BUILT_PRODUCTS_DIR; };
 		36C5493616F558AA0054C037 /* maxcpp6.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = maxcpp6.h; sourceTree = "<group>"; };
 		563C2A86243672E200210059 /* max-external copy-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "max-external copy-Info.plist"; path = "/Volumes/T5_disk1/_WORK/_dev/__MaxLang/objects/maxcpp-master/cb/maxlang.modulator/max-external copy-Info.plist"; sourceTree = "<absolute>"; };
-		563D2D1B243675DD007E2CBF /* maxlang.input.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = maxlang.input.cpp; sourceTree = "<group>"; };
 		568E92572422D3E80087FCF6 /* unknown_PARSE_DOUBLE.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = unknown_PARSE_DOUBLE.cpp; sourceTree = "<group>"; };
 		568E925D2424A5740087FCF6 /* maxlang.grammar-tester */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "maxlang.grammar-tester"; sourceTree = BUILT_PRODUCTS_DIR; };
 		568E92642424A6140087FCF6 /* maxlang.grammar-tester.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "maxlang.grammar-tester.cpp"; sourceTree = "<group>"; };
@@ -72,7 +71,6 @@
 				36C5491F16F557E00054C037 /* maxcpp */,
 				22CF10220EE984600054F513 /* maxmspsdk.xcconfig */,
 				22CF119A0EE9A8250054F513 /* maxlang.modulator.cpp */,
-				563D2D1B243675DD007E2CBF /* maxlang.input.cpp */,
 				22CF119D0EE9A82E0054F513 /* MaxAudioAPI.framework */,
 				19C28FB4FE9D528D11CA2CBB /* Products */,
 				568E92572422D3E80087FCF6 /* unknown_PARSE_DOUBLE.cpp */,

@@ -9,10 +9,41 @@
 #define maxlang_utils_h
 
 #include <cstdint>
+#include <string>
+#include <cstdlib>
 #include <cmath>
+
+#include <uuid/uuid.h>
 
 namespace maxlang
 {
+
+    const std::string CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        
+    std::string generateUUID(){
+        std::string uuid = std::string(36,' ');
+        int rnd = 0;
+        int r = 0;
+        
+        uuid[8] = '-';
+        uuid[13] = '-';
+        uuid[18] = '-';
+        uuid[23] = '-';
+        
+        uuid[14] = '4';
+        
+        for(int i=0;i<36;i++){
+            if (i != 8 && i != 13 && i != 18 && i != 14 && i != 23) {
+                if (rnd <= 0x02) {
+                    rnd = 0x2000000 + (std::rand() * 0x1000000) | 0;
+                }
+                rnd >>= 4;
+                uuid[i] = CHARS[(i == 19) ? ((rnd & 0xf) & 0x3) | 0x8 : rnd & 0xf];
+            }
+        }
+        return uuid;
+    }
+
     double fold(double v, double lo1, double hi1)
     {
         double lo;
@@ -72,7 +103,7 @@ namespace maxlang
         
         void setcurve(double c)
         {
-            curve = std::clamp(c,-1.4,1.04);
+            curve = std::clamp(c,-1.04,1.04);
             double hh, ff, eff, gh;
             
             dy = out_max - out_min;
@@ -109,12 +140,16 @@ namespace maxlang
         {
             out_min  = _out_min;
             dy = out_max - out_min;
+            if(curve<0)
+                dy *=-1;
         }
         
         void setout_max(double _out_max)
         {
             out_max  = _out_max;
             dy = out_max - out_min;
+            if(curve<0)
+                dy *=-1;
         }
         
         
