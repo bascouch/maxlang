@@ -10,6 +10,7 @@
 
 #include <tao/pegtl.hpp>
 #include <tao/pegtl/contrib/parse_tree.hpp>
+#include <tao/pegtl/contrib/tracer.hpp>
 
 namespace pegtl = tao::pegtl;
 #include "maxlang.utils.hpp"
@@ -23,9 +24,13 @@ int main(int argc, const char * argv[]) {
     
     
         try {
-            pegtl::string_input<> in( std::string("coco32"
+            pegtl::string_input<> in( std::string("3.2_"
                                                   ), "source" );
-            if( const auto root = pegtl::parse_tree::parse< maxlang::modtor_argument_value_start, maxlang::store >(in) ) {
+            if(
+               const auto root = pegtl::parse_tree::parse< maxlang::modtor_argument_value_start, maxlang::store >(in)
+               //const auto root = pegtl::parse< maxlang::modtor_argument_value_start, pegtl::nothing, pegtl::tracer >(in)
+               )
+            {
                 maxlang::print_node( *root );
             }
             else {

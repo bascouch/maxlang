@@ -171,18 +171,18 @@ public:
         
         double phase=-0.00001;
         if(ac> 0)
-            switch(av[1].a_type)
+            switch(av[0].a_type)
             {
                 case A_LONG:
-                    phase = av[1].a_w.w_long;
+                    phase = av[0].a_w.w_long;
                     break;
                 case A_FLOAT:
-                    phase = av[1].a_w.w_float;
+                    phase = av[0].a_w.w_float;
                     break;
                 case A_SYM:
                     break;
             }
-    
+        
         systhread_mutex_lock(mutx);
         if(modtor_head)
             modtor_head->sync(phase);

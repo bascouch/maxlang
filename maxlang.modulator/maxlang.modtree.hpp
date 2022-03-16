@@ -224,6 +224,8 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("min",modtor_param(from)));
             params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
             
             
             mt_gen = std::mt19937(rd_dev());
@@ -314,7 +316,8 @@ namespace maxlang {
             double min = params["min"].get(deltatime);
             double max = params["max"].get(deltatime);
             double curve = params["curve"].get(deltatime);
-            
+            double add = params["add"].get(deltatime);
+            double mul = params["mul"].get(deltatime);
             
             double r_freq = freq * exp2( m_varifreq );
             phase += r_freq*deltatime/1000.;
@@ -334,7 +337,7 @@ namespace maxlang {
             output_scale.setcurve(m_curve);
             
             double w = wave(phase, mode, m_pw);
-            return output_scale.apply(w);
+            return add+(output_scale.apply(w)*mul);
         }
     };
     
@@ -350,6 +353,8 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("min",modtor_param(from)));
             params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
             
             
             mt_gen_time = std::mt19937(rd_dev());
@@ -399,6 +404,8 @@ namespace maxlang {
             double min = params["min"].get(deltatime);
             double max = params["max"].get(deltatime);
             double curve = params["curve"].get(deltatime);
+            double add = params["add"].get(deltatime);
+            double mul = params["mul"].get(deltatime);
             double tmp;
                         
             if (phase < 0.) // start the line
@@ -431,7 +438,7 @@ namespace maxlang {
                 
             }
             
-            return m_output;
+            return add+(m_output*mul);
             
         }
     };
@@ -450,6 +457,8 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("segcurve",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
             
             //m_rand_prev = from;
             //m_rand_target = from;
@@ -509,6 +518,8 @@ namespace maxlang {
             double max = params["max"].get(deltatime);
             double curve = params["curve"].get(deltatime);
             double segcurve = params["segcurve"].get(deltatime);
+            double add = params["add"].get(deltatime);
+            double mul = params["mul"].get(deltatime);
             
             
             double r_freq = freq * exp2( m_varifreq );
@@ -535,7 +546,7 @@ namespace maxlang {
 
             double phase_c = segment_scale.apply(phase);
             double w = (1-phase_c)*m_rand_prev + phase_c*m_rand_target;
-            return output_scale.apply(w);
+            return add+(output_scale.apply(w)*mul);
         }
     };
     
@@ -551,6 +562,8 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("min",modtor_param(from)));
             params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
             
             //m_rand_prev = from;
             //m_rand_target = from;
@@ -609,7 +622,8 @@ namespace maxlang {
             double min = params["min"].get(deltatime);
             double max = params["max"].get(deltatime);
             double curve = params["curve"].get(deltatime);
-            
+            double add = params["add"].get(deltatime);
+            double mul = params["mul"].get(deltatime);
             
             double r_freq = freq * exp2( m_varifreq );
             phase += r_freq*deltatime/1000.;
@@ -632,7 +646,7 @@ namespace maxlang {
             output_scale.setout_max(max);
             
             double w = m_rand_target;
-            return output_scale.apply(w);
+            return add+(output_scale.apply(w)*mul);
         }
     };
 
@@ -832,7 +846,7 @@ namespace maxlang {
                 
             }
             double phase_c = segment_scale.apply(phase);
-            return add+((1-phase_c)*m_rand_prev + phase_c*m_rand_target)*mul;
+            return add+(((1-phase_c)*m_rand_prev + phase_c*m_rand_target)*mul);
         }
     };
     
@@ -1299,7 +1313,7 @@ namespace maxlang {
         
         m_input(double from)
         {
-            params.insert(std::pair<std::string, modtor_param>("name",modtor_param("random")));
+            params.insert(std::pair<std::string, modtor_param>("name",modtor_param("input")));
             params.insert(std::pair<std::string, modtor_param>("in",modtor_param("input")));
             params.insert(std::pair<std::string, modtor_param>("min",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
@@ -1343,6 +1357,8 @@ namespace maxlang {
             double min = params["min"].get(deltatime);
             double max = params["max"].get(deltatime);
             double curve = params["curve"].get(deltatime);
+            double add = params["add"].get(deltatime);
+            double mul = params["mul"].get(deltatime);
             
             // get val, min and max from global dictionary maxlang.input-internal.dict
             double v, inmin, inmax;
@@ -1368,7 +1384,7 @@ namespace maxlang {
             output_scale.setout_max(max);
             output_scale.setcurve(curve);
             
-            return output_scale.apply(v);
+            return add+(output_scale.apply(v)*mul);
         }
     };
     
@@ -1427,10 +1443,10 @@ namespace maxlang {
             
             segment_scale.setcurve(fadecurve);
             //m_fade1 = std::clamp((((1-fade)-0.5)*(1./(1.-fadecurve)))+0.5,0.,1.);
-            m_fade2 = fade;
+            m_fade2 = segment_scale.apply(fade);
             m_fade1 = 1.- m_fade2;
                 
-            m_val = (segment_scale.apply(m_fade1) * in1) + (segment_scale.apply(m_fade2) * in2);
+            m_val = (m_fade1 * in1) + (m_fade2 * in2);
             
             return add+(m_val*mul);
         }

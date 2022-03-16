@@ -14,6 +14,7 @@
 #include <tao/pegtl.hpp>
 #include <tao/pegtl/contrib/parse_tree.hpp>
 
+
 namespace pegtl = tao::pegtl;
 
 
@@ -25,17 +26,23 @@ namespace maxlang
     struct key_bool_true : TAO_PEGTL_KEYWORD( "true" ) {};
     struct key_bool_false : TAO_PEGTL_KEYWORD( "false" ) {};
     
+    struct litteral : pegtl::plus<pegtl::alpha> {};
+    struct lidentifier : pegtl::plus<pegtl::sor<pegtl::alnum,pegtl::one<'-'>,pegtl::one<'_'>,pegtl::one<'.'>>> {};
+
+    
     // Values
-    struct double_value
-    : pegtl::sor<
-    pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::plus< pegtl::digit > , pegtl::one<'.'>, pegtl::plus<pegtl::digit> >,
-    pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::one<'.'>, pegtl::plus<pegtl::digit> >,
-    pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::plus< pegtl::digit > , pegtl::one<'.'> >,
-    pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::plus< pegtl::digit > >
-    >{};
-    struct int_value : pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::plus< pegtl::digit > > {};
-    struct bool_value
-    : pegtl::sor<
+    struct double_value : pegtl::seq<
+    pegtl::sor<
+        pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::plus< pegtl::digit > , pegtl::one<'.'>, pegtl::plus<pegtl::digit> >,
+        pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::one<'.'>, pegtl::plus<pegtl::digit> >,
+        pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::plus< pegtl::digit > , pegtl::one<'.'> >,
+        pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::plus< pegtl::digit > >
+        >
+    , pegtl::not_at<lidentifier>
+    >
+    {};
+    struct int_value :  pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::plus< pegtl::digit, pegtl::not_at<lidentifier> > > {};
+    struct bool_value : pegtl::sor<
     pegtl::seq<key_bool_true>,
     pegtl::seq<key_bool_false>,
     pegtl::one< '0' >,
@@ -49,9 +56,6 @@ namespace maxlang
     struct list_value : pegtl::list<pegtl::sor<double_value,  int_value>, seps> {};
     struct list_expression : pegtl::seq< seps, pegtl::one<'['>,seps, list_value,seps, pegtl::one<']'>, seps > {};
     
-    struct litteral : pegtl::plus<pegtl::alpha> {};
-    
-    struct lidentifier : pegtl::plus<pegtl::sor<pegtl::alnum,pegtl::one<'-'>,pegtl::one<'_'>>> {};
     
     // modtor specific
     struct modtor_expression;
