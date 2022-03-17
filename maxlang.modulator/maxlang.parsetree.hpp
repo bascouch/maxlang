@@ -11,14 +11,26 @@
 namespace maxlang {
     
     int modtree_parse_modtor_params(const pegtl::parse_tree::node& n, modtor *&_modtor, t_object * m_ob);
-    
-   int modtree_parse_modtor(const pegtl::parse_tree::node& n, modtor *&_modtor, t_object * m_ob, double from_value)
+    int modtree_parse_modtor_expression_operator(const pegtl::parse_tree::node& n, modtor *&_modtor, t_object * m_ob, double from_value);
+
+    int modtree_parse_modtor_expression(const pegtl::parse_tree::node& n, modtor *&_modtor, t_object * m_ob, double from_value)
     {
-        // parse children maxlang::modtor_type + maxlang::modtor_arguments
-        if( n.children.empty() || n.children.size()<2 ) {
-            return 0;
-        }
-        
+       if( n.children.empty()) {
+           return 0;
+       }
+       
+       // parse children (modtor + modtor) modtor_expression_operator
+       if( n.children.size() == 1)
+       {
+           pegtl::parse_tree::node *type_node = n.children[0].get();
+           if(type_node->has_content() && type_node->type == "maxlang::modtor_expression_operator")
+               return modtree_parse_modtor_expression_operator(*type_node,_modtor,m_ob,from_value);
+           
+       }
+       
+       
+       // parse children maxlang::modtor_type + maxlang::modtor_arguments
+
         pegtl::parse_tree::node *type_node = n.children[0].get();
         pegtl::parse_tree::node *args_node = n.children[1].get();
         
@@ -57,6 +69,14 @@ namespace maxlang {
         }
         return  1;
     }
+
+    int modtree_parse_modtor_expression_operator(const pegtl::parse_tree::node& n, modtor *&_modtor, t_object * m_ob, double from_value)
+    {
+        maxlang::print_node( n );
+        
+        return 0;
+    }
+    
     
     int modtree_parse_modtor_param_value(const pegtl::parse_tree::node& n, modtor *&_modtor, std::string name, modtor_param *&_modtor_param, t_object * m_ob)
     {
@@ -107,7 +127,7 @@ namespace maxlang {
             {
                 // new child modtor
                 modtor * child_modtor = 0;
-                if(modtree_parse_modtor(*value_node, child_modtor,m_ob, 0.))
+                if(modtree_parse_modtor_expression(*value_node, child_modtor,m_ob, 0.))
                 {
                     _modtor_param = new modtor_param(child_modtor);
                     _modtor->setparam(name, *_modtor_param);
@@ -192,7 +212,7 @@ namespace maxlang {
 
         if(modtor_node->type == "maxlang::modtor_expression")
         {
-            return modtree_parse_modtor(*modtor_node,modtor,m_ob,from_value);
+            return modtree_parse_modtor_expression(*modtor_node,modtor,m_ob,from_value);
         }
         return 1;
     }

@@ -61,6 +61,14 @@ namespace maxlang
     struct modtor_expression;
     struct modtor_argument_value : pegtl::sor<double_value,  int_value,  list_expression, bool_value, modtor_expression, lidentifier > {};
     struct modtor_argument_name : litteral {};
+
+    struct modtor_argument_variable : pegtl::seq< pegtl::one<'$'>, litteral > {};
+
+    struct modtor_argument_num_value : pegtl::sor<double_value,  int_value, modtor_argument_variable, modtor_expression > {};
+
+    struct modtor_operator :  pegtl::sor<pegtl::one<'+'>, pegtl::one<'-'>, pegtl::one<'*'>, pegtl::one<'/'> >  {};
+
+    struct modtor_expression_operator : pegtl::seq< modtor_operator, seps,modtor_argument_num_value  > {};
     
     struct modtor_type : litteral {};
     
@@ -68,17 +76,17 @@ namespace maxlang
     
     struct modtor_arguments : pegtl::seq<pegtl::one<'('>, seps, pegtl::star<modtor_argument>, seps, pegtl::one<')'>> {};
     
-    struct modtor_expression : pegtl::seq<modtor_type, seps, modtor_arguments > {};
+    struct modtor_def : pegtl::seq<modtor_type, seps, modtor_arguments > {};
+    
+    struct modtor_expression : pegtl::seq< modtor_def, seps, pegtl::star< pegtl::seq<modtor_expression_operator, seps> >> {};
     
     struct modtor_start : pegtl::must< modtor_expression, seps, pegtl::eolf > {};
     
     struct modtor_argument_value_start : pegtl::must< modtor_argument_value, seps, pegtl::eolf > {};
     
-    
-    
     // Rules for constructing the parse tree
     //
-    
+
     template< typename Rule >
     struct action
     {};
@@ -159,6 +167,12 @@ namespace maxlang
     template<> struct store<modtor_argument_name> : std::true_type {};
     template<> struct store<modtor_argument_value> : std::true_type {};
     template<> struct store<list_expression> : std::true_type {};
+    template<> struct store<modtor_argument_variable> : std::true_type {};
+    template<> struct store<modtor_argument_num_value> : std::true_type {};
+    template<> struct store<modtor_operator> : std::true_type {};
+    template<> struct store<modtor_expression_operator> : std::true_type {};
+
+
     // clang-format on
     
     void print_node( const pegtl::parse_tree::node& n, const std::string& s = "" )

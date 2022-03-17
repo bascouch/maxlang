@@ -12,6 +12,7 @@
 #include <map>
 #include <cmath>
 #include <random>
+#include <algorithm>
 
 namespace maxlang {
     
@@ -79,6 +80,7 @@ namespace maxlang {
             // else specific modtor param
             if ( params.find(name) == params.end() )
             { // not found
+                params[name] = value;
                 return 0;
             } else {
                 // found
@@ -226,6 +228,7 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("count",modtor_param(-1.)));
             
             
             mt_gen = std::mt19937(rd_dev());
@@ -308,9 +311,16 @@ namespace maxlang {
         
         double get(double deltatime) override
         {
-            // get all the parameters
+
+            // get all the parameters (check time or freq format)
             double freq = params["freq"].get(deltatime);
             double varifreq = params["varifreq"].get(deltatime);
+            
+            if(params.find("time") != params.end())
+                freq = 1000./ std::clamp(params["time"].get(deltatime),0.001,10000000.);
+            if(params.find("varitime") != params.end())
+                varifreq = params["varitime"].get(deltatime);
+            
             double mode = params["mode"].get(deltatime);
             double pw = params["pw"].get(deltatime);
             double min = params["min"].get(deltatime);
@@ -318,6 +328,17 @@ namespace maxlang {
             double curve = params["curve"].get(deltatime);
             double add = params["add"].get(deltatime);
             double mul = params["mul"].get(deltatime);
+            
+            /** count special parameter: if > 0
+                • freq = 1./count
+                • deltatime = 1000.
+            */
+            double count = params["count"].get(deltatime);
+            if(count >= 0.)
+            {
+                freq = (count > 0.01)? 1./count : 100. ;
+                deltatime = 1000.;
+            }
             
             double r_freq = freq * exp2( m_varifreq );
             phase += r_freq*deltatime/1000.;
@@ -355,7 +376,7 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
-            
+            params.insert(std::pair<std::string, modtor_param>("count",modtor_param(-1.)));
             
             mt_gen_time = std::mt19937(rd_dev());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
@@ -398,15 +419,33 @@ namespace maxlang {
         
         double get(double deltatime) override
         {
-            // get all the parameters
+            // get all the parameters (check time or freq format)
             double time = params["time"].get(deltatime);
             double varitime = params["varitime"].get(deltatime);
+
+            if(params.find("freq") != params.end())
+                time = 1000./ std::clamp(params["freq"].get(deltatime),0.001,10000000.);
+
+            if(params.find("varifreq") != params.end())
+                varitime = params["varifreq"].get(deltatime);
+            
             double min = params["min"].get(deltatime);
             double max = params["max"].get(deltatime);
             double curve = params["curve"].get(deltatime);
             double add = params["add"].get(deltatime);
             double mul = params["mul"].get(deltatime);
             double tmp;
+            
+            /** count special parameter: if > 0
+                • freq = 1./count
+                • deltatime = 1000.
+            */
+            double count = params["count"].get(deltatime);
+            if(count >= 0.)
+            {
+                time = (count > 0.01)? count * 1000 : 10. ;
+                deltatime = 1000.;
+            }
                         
             if (phase < 0.) // start the line
             {
@@ -459,6 +498,7 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("segcurve",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("count",modtor_param(-1.)));
             
             //m_rand_prev = from;
             //m_rand_target = from;
@@ -510,9 +550,15 @@ namespace maxlang {
         
         double get(double deltatime) override
         {
-            // get all the parameters
+            // get all the parameters (check time or freq format)
             double freq = params["freq"].get(deltatime);
             double varifreq = params["varifreq"].get(deltatime);
+            
+            if(params.find("time") != params.end())
+                freq = 1000./ std::clamp(params["time"].get(deltatime),0.001,10000000.);
+            if(params.find("varitime") != params.end())
+                varifreq = params["varitime"].get(deltatime);
+            
             double walk = params["walk"].get(deltatime);
             double min = params["min"].get(deltatime);
             double max = params["max"].get(deltatime);
@@ -520,6 +566,17 @@ namespace maxlang {
             double segcurve = params["segcurve"].get(deltatime);
             double add = params["add"].get(deltatime);
             double mul = params["mul"].get(deltatime);
+            
+            /** count special parameter: if > 0
+                • freq = 1./count
+                • deltatime = 1000.
+            */
+            double count = params["count"].get(deltatime);
+            if(count >= 0.)
+            {
+                freq = (count > 0.01)? 1./count : 100. ;
+                deltatime = 1000.;
+            }
             
             
             double r_freq = freq * exp2( m_varifreq );
@@ -564,6 +621,7 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("count",modtor_param(-1.)));
             
             //m_rand_prev = from;
             //m_rand_target = from;
@@ -615,9 +673,15 @@ namespace maxlang {
         
         double get(double deltatime) override
         {
-            // get all the parameters
+            // get all the parameters (check time or freq format)
             double freq = params["freq"].get(deltatime);
             double varifreq = params["varifreq"].get(deltatime);
+            
+            if(params.find("time") != params.end())
+                freq = 1000./ std::clamp(params["time"].get(deltatime),0.001,10000000.);
+            if(params.find("varitime") != params.end())
+                varifreq = params["varitime"].get(deltatime);
+            
             double walk = params["walk"].get(deltatime);
             double min = params["min"].get(deltatime);
             double max = params["max"].get(deltatime);
@@ -625,6 +689,16 @@ namespace maxlang {
             double add = params["add"].get(deltatime);
             double mul = params["mul"].get(deltatime);
             
+            /** count special parameter: if > 0
+                • freq = 1./count
+                • deltatime = 1000.
+            */
+            double count = params["count"].get(deltatime);
+            if(count >= 0.)
+            {
+                freq = (count > 0.01)? 1./count : 100. ;
+                deltatime = 1000.;
+            }
             double r_freq = freq * exp2( m_varifreq );
             phase += r_freq*deltatime/1000.;
             
@@ -663,6 +737,7 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("list",modtor_param(m_list)));
             params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("count",modtor_param(-1.)));
             
             mt_gen_time = std::mt19937(rd_dev());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
@@ -707,13 +782,27 @@ namespace maxlang {
         
         double get(double deltatime) override
         {
-            // get all the parameters
+            // get all the parameters (check time or freq format)
             double freq = params["freq"].get(deltatime);
             double varifreq = params["varifreq"].get(deltatime);
+            
+            if(params.find("time") != params.end())
+                freq = 1000./ std::clamp(params["time"].get(deltatime),0.001,10000000.);
+            if(params.find("varitime") != params.end())
+                varifreq = params["varitime"].get(deltatime);
+            
             double mul = params["mul"].get(deltatime);
             double add = params["add"].get(deltatime);
-
-            
+            /** count special parameter: if > 0
+                • freq = 1./count
+                • deltatime = 1000.
+            */
+            double count = params["count"].get(deltatime);
+            if(count >= 0.)
+            {
+                freq = (count > 0.01)? 1./count : 100. ;
+                deltatime = 1000.;
+            }
             
             double r_freq = freq * exp2( m_varifreq );
             phase += r_freq*deltatime/1000.;
@@ -758,7 +847,7 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("segcurve",modtor_param(0.)));
-
+            params.insert(std::pair<std::string, modtor_param>("count",modtor_param(-1.)));
             
             mt_gen_time = std::mt19937(rd_dev());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
@@ -809,12 +898,28 @@ namespace maxlang {
         
         double get(double deltatime) override
         {
-            // get all the parameters
+            // get all the parameters (check time or freq format)
             double freq = params["freq"].get(deltatime);
             double varifreq = params["varifreq"].get(deltatime);
+            
+            if(params.find("time") != params.end())
+                freq = 1000./ std::clamp(params["time"].get(deltatime),0.001,10000000.);
+            if(params.find("varitime") != params.end())
+                varifreq = params["varitime"].get(deltatime);
+            
             double mul = params["mul"].get(deltatime);
             double add = params["add"].get(deltatime);
             double segcurve = params["segcurve"].get(deltatime);
+            /** count special parameter: if > 0
+                • freq = 1./count
+                • deltatime = 1000.
+            */
+            double count = params["count"].get(deltatime);
+            if(count >= 0.)
+            {
+                freq = (count > 0.01)? 1./count : 100. ;
+                deltatime = 1000.;
+            }
             
             double r_freq = freq * exp2( m_varifreq );
             phase += r_freq*deltatime/1000.;
@@ -867,7 +972,7 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("segcurve",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("play",modtor_param(1)));
             params.insert(std::pair<std::string, modtor_param>("loop",modtor_param(1)));
-            
+            params.insert(std::pair<std::string, modtor_param>("count",modtor_param(-1.)));
             
             mt_gen_time = std::mt19937(rd_dev());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
@@ -915,14 +1020,30 @@ namespace maxlang {
         
         double get(double deltatime) override
         {
-            // get all the parameters
+            // get all the parameters (check time or freq format)
             double freq = params["freq"].get(deltatime);
             double varifreq = params["varifreq"].get(deltatime);
+            
+            if(params.find("time") != params.end())
+                freq = 1000./ std::clamp(params["time"].get(deltatime),0.001,10000000.);
+            if(params.find("varitime") != params.end())
+                varifreq = params["varitime"].get(deltatime);
+            
             double mul = params["mul"].get(deltatime);
             double add = params["add"].get(deltatime);
             double segcurve = params["segcurve"].get(deltatime);
             int play = params["play"].get(deltatime)>0;
             int loop = params["loop"].get(deltatime)>0;
+            /** count special parameter: if > 0
+                • freq = 1./count
+                • deltatime = 1000.
+            */
+            double count = params["count"].get(deltatime);
+            if(count >= 0.)
+            {
+                freq = (count > 0.01)? 1./count : 100. ;
+                deltatime = 1000.;
+            }
             
             m_list = params["list"].getlist();
             m_list_l  = m_list.size();
@@ -1004,7 +1125,7 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("play",modtor_param(1)));
             params.insert(std::pair<std::string, modtor_param>("loop",modtor_param(1)));
-            
+            params.insert(std::pair<std::string, modtor_param>("count",modtor_param(-1.)));
             
             mt_gen_time = std::mt19937(rd_dev());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
@@ -1045,13 +1166,29 @@ namespace maxlang {
         
         double get(double deltatime) override
         {
-            // get all the parameters
+            // get all the parameters (check time or freq format)
             double freq = params["freq"].get(deltatime);
             double varifreq = params["varifreq"].get(deltatime);
+            
+            if(params.find("time") != params.end())
+                freq = 1000./ std::clamp(params["time"].get(deltatime),0.001,10000000.);
+            if(params.find("varitime") != params.end())
+                varifreq = params["varitime"].get(deltatime);
+            
             double mul = params["mul"].get(deltatime);
             double add = params["add"].get(deltatime);
             int play = params["play"].get(deltatime)>0;
             int loop = params["loop"].get(deltatime)>0;
+            /** count special parameter: if > 0
+                • freq = 1./count
+                • deltatime = 1000.
+            */
+            double count = params["count"].get(deltatime);
+            if(count >= 0.)
+            {
+                freq = (count > 0.01)? 1./count : 100. ;
+                deltatime = 1000.;
+            }
             
             m_list = params["list"].getlist();
             m_list_l  = m_list.size();
@@ -1127,7 +1264,7 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("segcurve",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("play",modtor_param(1)));
             params.insert(std::pair<std::string, modtor_param>("loop",modtor_param(0)));
-            
+            params.insert(std::pair<std::string, modtor_param>("count",modtor_param(-1.)));
             
             mt_gen_time = std::mt19937(rd_dev());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
@@ -1224,14 +1361,31 @@ namespace maxlang {
         
         double get(double deltatime) override
         {
-            // get all the parameters
+            // get all the parameters (check time or freq format)
             double time = params["time"].get(deltatime);
             double varitime = params["varitime"].get(deltatime);
+
+            if(params.find("freq") != params.end())
+                time = 1000./ std::clamp(params["freq"].get(deltatime),0.001,10000000.);
+
+            if(params.find("varifreq") != params.end())
+                varitime = params["varifreq"].get(deltatime);
+            
             double mul = params["mul"].get(deltatime);
             double add = params["add"].get(deltatime);
             double segcurve = params["segcurve"].get(deltatime);
             int play = params["play"].get(deltatime)>0;
             int loop = params["loop"].get(deltatime)>0;
+            /** count special parameter: if > 0
+                • freq = 1./count
+                • deltatime = 1000.
+            */
+            double count = params["count"].get(deltatime);
+            if(count >= 0.)
+            {
+                time = (count > 0.01)? count * 1000 : 10. ;
+                deltatime = 1000.;
+            }
             
             p_list = params["list"].getlist();
             if(m_list != p_list)
@@ -1388,6 +1542,137 @@ namespace maxlang {
         }
     };
     
+    class m_add : public modtor {
+        
+    public:
+        
+        m_add(double from)
+        {
+            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(from)));
+            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(0)));
+        };
+        
+        ~m_add()
+        {
+            params.clear();
+        }
+        
+        void seed(std::string seed_str) override
+        {
+        }
+        
+        void sync(double _phase) override
+        {
+        }
+        
+        double get(double deltatime) override
+        {
+            // get all the parameters
+            double in1 = params["a"].get(deltatime);
+            double in2 = params["b"].get(deltatime);
+            
+            return in1 + in2;
+        }
+    };
+
+    class m_minus : public modtor {
+        
+    public:
+        
+        m_minus(double from)
+        {
+            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(from)));
+            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(0)));
+        };
+        
+        ~m_minus()
+        {
+            params.clear();
+        }
+        
+        void seed(std::string seed_str) override
+        {
+        }
+        
+        void sync(double _phase) override
+        {
+        }
+        
+        double get(double deltatime) override
+        {
+            // get all the parameters
+            double in1 = params["a"].get(deltatime);
+            double in2 = params["b"].get(deltatime);
+            
+            return in1 - in2;
+        }
+    };
+
+    class m_mul : public modtor {
+        
+    public:
+        
+        m_mul(double from)
+        {
+            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(from)));
+            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(1)));
+        };
+        
+        ~m_mul()
+        {
+            params.clear();
+        }
+        
+        void seed(std::string seed_str) override
+        {
+        }
+        
+        void sync(double _phase) override
+        {
+        }
+        
+        double get(double deltatime) override
+        {
+            // get all the parameters
+            double in1 = params["a"].get(deltatime);
+            double in2 = params["b"].get(deltatime);
+            
+            return in1 * in2;
+        }
+    };
+
+    class m_div : public modtor {
+        
+    public:
+        
+        m_div(double from)
+        {
+            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(from)));
+            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(1)));
+        };
+        
+        ~m_div()
+        {
+            params.clear();
+        }
+        
+        void seed(std::string seed_str) override
+        {
+        }
+        
+        void sync(double _phase) override
+        {
+        }
+        
+        double get(double deltatime) override
+        {
+            // get all the parameters
+            double in1 = params["a"].get(deltatime);
+            double in2 = params["b"].get(deltatime);
+            
+            return in1 / in2;
+        }
+    };
     
     class m_xfade : public modtor {
         
@@ -1465,6 +1750,10 @@ namespace maxlang {
         seqi,
         env,
         input,
+        add,
+        minus,
+        mul,
+        div,
         xfade
     };
     

@@ -15,8 +15,8 @@
             timestampString = "608817446.589242"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1282"
-            endingLineNumber = "1282"
+            startingLineNumber = "1436"
+            endingLineNumber = "1436"
             landmarkName = "get(deltatime)"
             landmarkType = "7">
          </BreakpointContent>
@@ -32,8 +32,8 @@
             timestampString = "608817446.589309"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1240"
-            endingLineNumber = "1240"
+            startingLineNumber = "1394"
+            endingLineNumber = "1394"
             landmarkName = "get(deltatime)"
             landmarkType = "7">
          </BreakpointContent>
@@ -49,8 +49,8 @@
             timestampString = "608817446.58936"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1284"
-            endingLineNumber = "1284"
+            startingLineNumber = "1438"
+            endingLineNumber = "1438"
             landmarkName = "get(deltatime)"
             landmarkType = "7">
          </BreakpointContent>
@@ -66,10 +66,42 @@
             timestampString = "608817446.5894049"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1279"
-            endingLineNumber = "1279"
+            startingLineNumber = "1433"
+            endingLineNumber = "1433"
             landmarkName = "get(deltatime)"
             landmarkType = "7">
+            <Locations>
+               <Location
+                  uuid = "D652A5C6-8848-493F-9383-B088E850FD82 - 26fb00fe96d8f944"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "maxlang::m_env::get(double)"
+                  moduleName = "maxlang.modulator"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Volumes/T5_disk1/_WORK/_dev/__maxlang/objects/maxcpp-master/cb/maxlang.modulator/maxlang.modtree.hpp"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "1435"
+                  endingLineNumber = "1435"
+                  offsetFromSymbolStart = "3449">
+               </Location>
+               <Location
+                  uuid = "D652A5C6-8848-493F-9383-B088E850FD82 - 26fb00fe96d8f986"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "maxlang::m_env::get(double)"
+                  moduleName = "maxlang.modulator"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Volumes/T5_disk1/_WORK/_dev/__maxlang/objects/maxcpp-master/cb/maxlang.modulator/maxlang.modtree.hpp"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "1433"
+                  endingLineNumber = "1433"
+                  offsetFromSymbolStart = "3403">
+               </Location>
+            </Locations>
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -92,57 +124,6 @@
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "DE9F8EFA-68E9-4A38-B6F6-483797A23FA3"
-            shouldBeEnabled = "No"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "maxlang.modulator.cpp"
-            timestampString = "608817446.589476"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "91"
-            endingLineNumber = "91"
-            landmarkName = "parameter(inlet, s, ac, av)"
-            landmarkType = "7">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            uuid = "8A16D831-9329-4452-8476-F48B5A18C24E"
-            shouldBeEnabled = "Yes"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "maxlang.modulator.cpp"
-            timestampString = "608817446.589771"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "95"
-            endingLineNumber = "95"
-            landmarkName = "parameter(inlet, s, ac, av)"
-            landmarkType = "7">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            uuid = "AD2BFBB0-CE20-47E7-9845-79246F3945C0"
-            shouldBeEnabled = "Yes"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "maxlang.modulator.cpp"
-            timestampString = "608817446.589967"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "88"
-            endingLineNumber = "88"
-            landmarkName = "parameter(inlet, s, ac, av)"
-            landmarkType = "7">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
             uuid = "071A4580-A98D-4C07-A28F-EA90D5604D25"
             shouldBeEnabled = "Yes"
             ignoreCount = "0"
@@ -151,8 +132,8 @@
             timestampString = "608886588.088246"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "124"
-            endingLineNumber = "124"
+            startingLineNumber = "144"
+            endingLineNumber = "144"
             landmarkName = "modtree_parse_modtor_param_value(n, _modtor, name, _modtor_param, m_ob)"
             landmarkType = "9">
          </BreakpointContent>
@@ -160,17 +141,161 @@
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "A5718104-07FC-46C9-A980-C422E08F4878"
+            uuid = "071CEE74-ADD7-48FA-B5EA-A3FE5DC5D56C"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "maxlang.parsetree.hpp"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "75"
+            endingLineNumber = "75"
+            landmarkName = "modtree_parse_modtor_expression_operator(n, _modtor, m_ob, from_value)"
+            landmarkType = "9">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "63A01751-A0C7-41CC-BA6B-6ADFB4A7090C"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "maxlang.parsetree.hpp"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "23"
+            endingLineNumber = "23"
+            landmarkName = "modtree_parse_modtor_expression(n, _modtor, m_ob, from_value)"
+            landmarkType = "9">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "382A3FC0-4AE3-4988-8DF9-BAC8FA4F0402"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "maxlang.parsetree.hpp"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "213"
+            endingLineNumber = "213"
+            landmarkName = "modtree_make(n, modtor, m_ob, from_value)"
+            landmarkType = "9">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "12800FA9-57FA-418F-BB63-CE2D8804BAFC"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "maxlang.parsetree.hpp"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "202"
+            endingLineNumber = "202"
+            landmarkName = "modtree_make(n, modtor, m_ob, from_value)"
+            landmarkType = "9">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "0A419065-7794-4808-B015-04EF19FF7494"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "maxlang.parsetree.hpp"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "26"
+            endingLineNumber = "26"
+            landmarkName = "modtree_parse_modtor_expression(n, _modtor, m_ob, from_value)"
+            landmarkType = "9">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "6D54FEA7-5CDC-4881-9D2A-E2BFC17A01F1"
             shouldBeEnabled = "No"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
-            filePath = "maxlang.modulator.cpp"
+            filePath = "maxlang.modtree.hpp"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "181"
-            endingLineNumber = "181"
-            landmarkName = "sync(inlet, s, ac, av)"
+            startingLineNumber = "346"
+            endingLineNumber = "346"
+            landmarkName = "get(deltatime)"
             landmarkType = "7">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "C72D9464-3914-4C6E-960B-22C7DA588817"
+            shouldBeEnabled = "No"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "maxlang.modtree.hpp"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "320"
+            endingLineNumber = "320"
+            landmarkName = "get(deltatime)"
+            landmarkType = "7">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "7B532140-EB89-464C-B5CD-65080F6A4A2D"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "maxlang.modtree.hpp"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "319"
+            endingLineNumber = "319"
+            landmarkName = "get(deltatime)"
+            landmarkType = "7">
+            <Locations>
+               <Location
+                  uuid = "7B532140-EB89-464C-B5CD-65080F6A4A2D - cf07568e9bfdd720"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "maxlang::m_lfo::get(double)"
+                  moduleName = "maxlang.modulator"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Volumes/T5_disk1/_WORK/_dev/__maxlang/objects/maxcpp-master/cb/maxlang.modulator/maxlang.modtree.hpp"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "319"
+                  endingLineNumber = "319"
+                  offsetFromSymbolStart = "454">
+               </Location>
+               <Location
+                  uuid = "7B532140-EB89-464C-B5CD-65080F6A4A2D - cf07568e9bfdd720"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "maxlang::m_lfo::get(double)"
+                  moduleName = "maxlang.modulator"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Volumes/T5_disk1/_WORK/_dev/__maxlang/objects/maxcpp-master/cb/maxlang.modulator/maxlang.modtree.hpp"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "319"
+                  endingLineNumber = "319"
+                  offsetFromSymbolStart = "285">
+               </Location>
+            </Locations>
          </BreakpointContent>
       </BreakpointProxy>
    </Breakpoints>

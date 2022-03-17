@@ -24,14 +24,14 @@ int main(int argc, const char * argv[]) {
     
     
         try {
-            pegtl::string_input<> in( std::string("3.2_"
+            pegtl::string_input<> in( std::string("lfo(freq = rand() + 1. mode=4) + rand() / 34"
                                                   ), "source" );
             if(
-               const auto root = pegtl::parse_tree::parse< maxlang::modtor_argument_value_start, maxlang::store >(in)
-               //const auto root = pegtl::parse< maxlang::modtor_argument_value_start, pegtl::nothing, pegtl::tracer >(in)
+               //const auto root = pegtl::parse_tree::parse< maxlang::modtor_start, maxlang::store >(in)
+               const auto root = pegtl::parse< maxlang::modtor_start, pegtl::nothing, pegtl::tracer >(in)
                )
             {
-                maxlang::print_node( *root );
+                //maxlang::print_node( *root );
             }
             else {
                 std::cout << "PARSE FAILED" << std::endl;
