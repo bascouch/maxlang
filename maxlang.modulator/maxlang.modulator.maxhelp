@@ -87,6 +87,32 @@
 						"visible" : 1,
 						"boxes" : [ 							{
 								"box" : 								{
+									"format" : 6,
+									"id" : "obj-78",
+									"maxclass" : "flonum",
+									"numinlets" : 1,
+									"numoutlets" : 2,
+									"outlettype" : [ "", "bang" ],
+									"parameter_enable" : 0,
+									"patching_rect" : [ 133.75, 417.0, 50.0, 22.0 ]
+								}
+
+							}
+, 							{
+								"box" : 								{
+									"id" : "obj-76",
+									"maxclass" : "message",
+									"numinlets" : 2,
+									"numoutlets" : 1,
+									"outlettype" : [ "" ],
+									"patching_rect" : [ 133.75, 453.0, 103.0, 22.0 ],
+									"presentation_linecount" : 3,
+									"text" : "parameter mul $1"
+								}
+
+							}
+, 							{
+								"box" : 								{
 									"fontname" : "Arial",
 									"fontsize" : 11.595186999999999,
 									"id" : "obj-75",
@@ -96,7 +122,6 @@
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
 									"patching_rect" : [ 33.25, 646.0, 351.0, 34.0 ],
-									"presentation_linecount" : 3,
 									"text" : ";\rfor.test env(time=2000 list=[ 0 1. 100 1. 0 ] segcurve=0.4 )"
 								}
 
@@ -112,7 +137,6 @@
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
 									"patching_rect" : [ 13.25, 591.5, 272.0, 34.0 ],
-									"presentation_linecount" : 2,
 									"text" : ";\rfor.test randi( min=0 max=100 count=10 curve=0.5)"
 								}
 
@@ -128,7 +152,6 @@
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
 									"patching_rect" : [ 33.25, 134.0, 344.0, 34.0 ],
-									"presentation_linecount" : 3,
 									"text" : ";\rfor.test line( min=0 max=100 count=100 curve=0.5)"
 								}
 
@@ -142,7 +165,6 @@
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
 									"patching_rect" : [ 67.75, 489.0, 218.0, 35.0 ],
-									"presentation_linecount" : 2,
 									"text" : ";\rfor.test lfo(count=3.9 min=0 max=127)"
 								}
 
@@ -167,7 +189,7 @@
 									"numinlets" : 2,
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
-									"patching_rect" : [ 62.75, 417.0, 47.0, 22.0 ],
+									"patching_rect" : [ 67.75, 417.0, 47.0, 22.0 ],
 									"text" : "sync 0."
 								}
 
@@ -1817,6 +1839,20 @@
 								"patchline" : 								{
 									"destination" : [ "obj-57", 0 ],
 									"source" : [ "obj-70", 0 ]
+								}
+
+							}
+, 							{
+								"patchline" : 								{
+									"destination" : [ "obj-57", 0 ],
+									"source" : [ "obj-76", 0 ]
+								}
+
+							}
+, 							{
+								"patchline" : 								{
+									"destination" : [ "obj-76", 0 ],
+									"source" : [ "obj-78", 0 ]
 								}
 
 							}

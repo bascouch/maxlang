@@ -1,4 +1,4 @@
-#include "maxcpp6.h"
+#include "maxcpp/maxcpp6.h"
 #include "ext_strings.h"
 #include "ext_dictobj.h"
 
