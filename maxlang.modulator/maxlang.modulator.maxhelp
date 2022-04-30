@@ -87,6 +87,52 @@
 						"visible" : 1,
 						"boxes" : [ 							{
 								"box" : 								{
+									"fontname" : "Arial",
+									"fontsize" : 11.595186999999999,
+									"id" : "obj-81",
+									"linecount" : 2,
+									"maxclass" : "message",
+									"numinlets" : 2,
+									"numoutlets" : 1,
+									"outlettype" : [ "" ],
+									"patching_rect" : [ 13.25, 217.5, 507.0, 34.0 ],
+									"presentation_linecount" : 2,
+									"text" : ";\rfor.test quantize(in=env(list=[0. 0.5 1200.] loop=1 time=5000) list= [0. 100. 200. 700.] mod=1200)"
+								}
+
+							}
+, 							{
+								"box" : 								{
+									"fontname" : "Arial",
+									"fontsize" : 11.595186999999999,
+									"id" : "obj-79",
+									"linecount" : 2,
+									"maxclass" : "message",
+									"numinlets" : 2,
+									"numoutlets" : 1,
+									"outlettype" : [ "" ],
+									"patching_rect" : [ 13.25, 159.5, 485.0, 34.0 ],
+									"text" : ";\rfor.test quantize(in=env(list=[0. 0.5 100.] loop=1 time=5000) list= [0. 100] )"
+								}
+
+							}
+, 							{
+								"box" : 								{
+									"fontname" : "Arial",
+									"fontsize" : 11.595186999999999,
+									"id" : "obj-77",
+									"linecount" : 2,
+									"maxclass" : "message",
+									"numinlets" : 2,
+									"numoutlets" : 1,
+									"outlettype" : [ "" ],
+									"patching_rect" : [ 13.25, 112.0, 485.0, 34.0 ],
+									"text" : ";\rfor.test quantize(in=env(list=[0. 0.5 100.] loop=1 time=5000) list= [0. 10. 20. 30. 40. 50. 100] )"
+								}
+
+							}
+, 							{
+								"box" : 								{
 									"format" : 6,
 									"id" : "obj-78",
 									"maxclass" : "flonum",
@@ -105,9 +151,8 @@
 									"numinlets" : 2,
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
-									"patching_rect" : [ 133.75, 453.0, 103.0, 22.0 ],
-									"presentation_linecount" : 3,
-									"text" : "parameter mul $1"
+									"patching_rect" : [ 133.75, 453.0, 113.0, 22.0 ],
+									"text" : "parameter depth $1"
 								}
 
 							}
@@ -151,8 +196,8 @@
 									"numinlets" : 2,
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
-									"patching_rect" : [ 33.25, 134.0, 344.0, 34.0 ],
-									"text" : ";\rfor.test line( min=0 max=100 count=100 curve=0.5)"
+									"patching_rect" : [ 13.25, 71.0, 463.0, 34.0 ],
+									"text" : ";\rfor.test quantize(in=line( min=0 max=100 count=100 curve=0.5) list= [0. 10. 40.] )"
 								}
 
 							}
@@ -177,7 +222,7 @@
 									"numinlets" : 2,
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
-									"patching_rect" : [ 67.75, 270.0, 221.0, 35.0 ],
+									"patching_rect" : [ 22.75, 745.0, 221.0, 35.0 ],
 									"text" : ";\rfor.test lfo(time=10000 min=0 max=127)"
 								}
 
@@ -202,7 +247,7 @@
 									"numinlets" : 2,
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
-									"patching_rect" : [ 62.75, 340.0, 218.0, 35.0 ],
+									"patching_rect" : [ 17.75, 815.0, 218.0, 35.0 ],
 									"text" : ";\rfor.test lfo(count=3.9 min=0 max=127)"
 								}
 
@@ -227,7 +272,7 @@
 									"numinlets" : 2,
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
-									"patching_rect" : [ 62.75, 224.0, 192.0, 35.0 ],
+									"patching_rect" : [ 17.75, 699.0, 192.0, 35.0 ],
 									"text" : ";\rfor.test lfo(freq=1 min=0 max=127)"
 								}
 
@@ -319,7 +364,7 @@
 									"numinlets" : 2,
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
-									"patching_rect" : [ 291.75, 203.0, 127.0, 22.0 ],
+									"patching_rect" : [ 403.0, 519.5, 127.0, 22.0 ],
 									"text" : "lfo(freq=0.6 max=127)"
 								}
 
@@ -8937,7 +8982,7 @@
 			}
 , 			{
 				"name" : "maxlang.input.maxpat",
-				"bootpath" : "/Volumes/T5_disk1/_WORK/_dev/__maxlang/objects/maxcpp-master/cb/maxlang.modulator",
+				"bootpath" : "/Volumes/T5_disk1/_WORK/_dev/__max/max-sdk/source/cb/maxlang.modulator",
 				"patcherrelativepath" : ".",
 				"type" : "JSON",
 				"implicit" : 1

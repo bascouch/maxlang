@@ -43,6 +43,16 @@ namespace maxlang
         }
         return uuid;
     }
+    
+    double modulo(double v, double mod)
+    {
+        double out;
+        
+        out = fmod(v,mod);
+        out += mod;
+        return fmod(out,mod);
+        
+    }
 
     double fold(double v, double lo1, double hi1)
     {

@@ -27,7 +27,7 @@ namespace maxlang {
         modtor_param(double v);
         modtor_param(int v);
         modtor_param(std::vector<double> l);
-        modtor_param(modtor * m);
+        modtor_param(modtor *m);
         modtor_param(std::string s);
         
         ~modtor_param();
@@ -62,30 +62,30 @@ namespace maxlang {
         virtual void seed(std::string seed_string) = 0;
         
         
-        int setparam(std::string name, modtor_param value)
+        int setparam(std::string name, modtor_param *value)
         {
             // check if param is a refname
             if(name=="name")
             {
-                modtor_refname = value.getstring();
-                params[name] = value;
+                modtor_refname = value->getstring();
+                params[name] = *value;
                 return 1;
             }
-            // commin seed param
+            // common seed param
             if(name=="seed")
             {
-                params[name] = value;
+                params[name] = *value;
                 return 1;
             }
             // else specific modtor param
             if ( params.find(name) == params.end() )
             { // not found
-                params[name] = value;
+                params[name] = *value;
                 return 0;
             } else {
                 // found
-                params.erase(name);
-                params[name] = value;
+                params.erase(name); // TEST bug
+                params[name] = *value;
                 //std::cout << value._type << std::endl;
             }
             return 1;
@@ -166,9 +166,12 @@ namespace maxlang {
     
     modtor_param::~modtor_param()
     {
-        /*if(_modtor)
+        if(modtor_param_type::e_modtor && _modtor)
             delete _modtor;
-         */
+        if(modtor_param_type::e_list)
+            _list.clear();
+         
+        
     }
     
     double modtor_param::get(double deltatime)
@@ -242,6 +245,9 @@ namespace maxlang {
         ~m_lfo()
         {
             params.clear();
+            
+            mt_gen.~mersenne_twister_engine();
+            mt_rand.~uniform_real_distribution();
         }
         
         double phase = 1.;
@@ -394,6 +400,9 @@ namespace maxlang {
         ~m_line()
         {
             params.clear();
+            
+            mt_gen_time.~mersenne_twister_engine();
+            mt_rand_time.~uniform_real_distribution();
         }
         
         double phase = 0;
@@ -522,6 +531,11 @@ namespace maxlang {
         ~m_randi()
         {
             params.clear();
+            
+            mt_gen_time.~mersenne_twister_engine();
+            mt_rand_time.~uniform_real_distribution();
+            mt_gen_val.~mersenne_twister_engine();
+            mt_rand_val.~uniform_real_distribution();
         }
         
         double phase = 1.;
@@ -644,6 +658,11 @@ namespace maxlang {
         ~m_rand()
         {
             params.clear();
+            
+            mt_gen_time.~mersenne_twister_engine();
+            mt_rand_time.~uniform_real_distribution();
+            mt_gen_val.~mersenne_twister_engine();
+            mt_rand_val.~uniform_real_distribution();
         }
         
         double phase = 1.;
@@ -750,6 +769,11 @@ namespace maxlang {
         ~m_choice()
         {
             params.clear();
+            
+            mt_gen_time.~mersenne_twister_engine();
+            mt_rand_time.~uniform_real_distribution();
+            mt_gen_val.~mersenne_twister_engine();
+            mt_rand_val.~uniform_real_distribution();
         }
         
         double phase = 1.;
@@ -864,6 +888,11 @@ namespace maxlang {
         ~m_choicei()
         {
             params.clear();
+            
+            mt_gen_time.~mersenne_twister_engine();
+            mt_rand_time.~uniform_real_distribution();
+            mt_gen_val.~mersenne_twister_engine();
+            mt_rand_val.~uniform_real_distribution();
         }
         
         double phase = 1.;
@@ -986,6 +1015,10 @@ namespace maxlang {
         ~m_seqi()
         {
             params.clear();
+            
+            mt_gen_time.~mersenne_twister_engine();
+            mt_rand_time.~uniform_real_distribution();
+            
         }
         
         double phase = 1.;
@@ -1135,6 +1168,10 @@ namespace maxlang {
         ~m_seq()
         {
             params.clear();
+            
+            mt_gen_time.~mersenne_twister_engine();
+            mt_rand_time.~uniform_real_distribution();
+
         }
         
         double phase = 1.;
@@ -1278,6 +1315,10 @@ namespace maxlang {
         ~m_env()
         {
             params.clear();
+            
+            mt_gen_time.~mersenne_twister_engine();
+            mt_rand_time.~uniform_real_distribution();
+
         }
         
         struct seg {
@@ -1459,7 +1500,195 @@ namespace maxlang {
             return add+(m_val*mul);
         }
     };
+
+    class m_quantize : public modtor {
+        
+    public:
+        
+        m_quantize(double from)
+        {
+            // y1 dt1 y2 dt2 y3
+
+            params.insert(std::pair<std::string, modtor_param>("in",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("depth",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("mod",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("list",modtor_param(std::vector<double>({0.}))));
+            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
+
+            
+        };
+        
+        ~m_quantize()
+        {
+            params.clear();
+        }
+        
+        
+        double m_depth = 1.;
+        double m_mod = 0.;
+        double m_val = 0., m_end_val=0.;
+
+        
+        std::vector<double> m_list;
+        std::vector<double> p_list;
+        std::vector<double> m_list_mod;
+       
+        
+        void seed(std::string seed_str) override
+        {
+
+        }
+        
+        void sync(double _phase) override
+        {
+        }
+        
+        /**
+        get nearest without mod
+         */
+        double getnearest(double in, double depth)
+        {
+            double dist = 1.e20;
+            double d,imin=0,imax=0;
+            double a,b;
+            
+            for(int i = 0; i<m_list.size(); i++)
+                if(in > m_list[i])
+                {
+                    imin = i;
+                    imax = i+1;
+                }
+            
+            if ((imin == 0 && imax==0) || imax == (m_list.size()))
+                return m_list[imin];
+            
+            dist = m_list[imax] - m_list[imin];
+            d = in - m_list[imin];
+            double fact = d / dist;
+            double fade;
+            
+            if(depth >= 1.)
+                return (fact<0.5)?  m_list[imin] : m_list[imax];
     
+            if(fact < 0.5)
+            {
+                fade = powf(fact *2, exp(depth*5.))*0.5;
+                b = fade;
+                a = 1. - fade;
+            }
+            else
+            {
+                fade = powf((1.-fact)*2, exp(depth*5.))*0.5 ;
+                a = fade;
+                b = 1. - fade;
+            }
+
+            return a * m_list[imin] + b * m_list[imax];
+           
+        }
+        
+        
+        /**
+        get nearest without mod
+         */
+        double getnearestmod(double in, double depth, double mod)
+        {
+            double dist = 1.e20;
+            double d,imin=0,imax=0;
+            double a,b;
+            double in_mod = modulo(in,mod);
+            double in_remainder = in - in_mod;
+            double v_min,v_max;
+            
+            if (in_mod < m_list_mod[0])
+            {
+                v_min = m_list_mod[m_list_mod.size()-1] - mod;
+                v_max = m_list_mod[0];
+            }
+            else if (in_mod >= m_list_mod[m_list_mod.size()-1])
+            {
+                v_min = m_list_mod[m_list_mod.size()-1];
+                v_max = m_list_mod[0]+mod;
+            }
+            else
+            {
+                for(int i = 0; i<m_list_mod.size(); i++)
+                    if(in_mod > m_list_mod[i])
+                    {
+                        imin = i;
+                        imax = i+1;
+                    }
+                
+                v_min = m_list_mod[imin];
+                v_max = m_list_mod[imax];
+            }
+            
+            dist = v_max - v_min;
+            d = in_mod - v_min;
+            double fact = d / dist;
+            double fade;
+            
+            if(depth >= 1.)
+                return in_remainder+((fact<0.5)?  v_min : v_max);
+    
+            if(fact < 0.5)
+            {
+                fade = powf(fact *2, exp(depth*5.))*0.5;
+                b = fade;
+                a = 1. - fade;
+            }
+            else
+            {
+                fade = powf((1.-fact)*2, exp(depth*5.))*0.5 ;
+                a = fade;
+                b = 1. - fade;
+            }
+
+            return in_remainder+(a * v_min + b * v_max);
+           
+        }
+        
+        double get(double deltatime) override
+        {
+            // get all the parameters
+            double in = params["in"].get(deltatime);
+            
+            double depth = std::clamp(params["depth"].get(deltatime),0.,1.);
+            double mod = std::max(params["mod"].get(deltatime),0.);
+
+            double mul = params["mul"].get(deltatime);
+            double add = params["add"].get(deltatime);
+
+            p_list = params["list"].getlist();
+            
+            
+            if(m_list != p_list)
+            {
+                m_list = p_list;
+                sort(m_list.begin(),m_list.end());
+                m_list_mod = m_list;
+                if(mod > 0.)
+                {
+                    std::for_each(m_list_mod.begin(), m_list_mod.end(),[&mod](double &d){ d = modulo(d,mod);});
+                    sort(m_list_mod.begin(),m_list_mod.end());
+                
+                }
+                
+            }
+            
+            if(!m_list.size())
+                return m_val = add+(in*mul);
+            
+            if(mod == 0.)
+                m_val = getnearest(in,depth);
+            else
+                m_val = getnearestmod(in,depth,mod);
+
+            return add+(m_val*mul);
+        }
+    };
+        
     
     class m_input : public modtor {
         
@@ -1467,7 +1696,7 @@ namespace maxlang {
         
         m_input(double from)
         {
-            params.insert(std::pair<std::string, modtor_param>("name",modtor_param("input")));
+            params.insert(std::pair<std::string, modtor_param>("name",modtor_param("name")));
             params.insert(std::pair<std::string, modtor_param>("in",modtor_param("input")));
             params.insert(std::pair<std::string, modtor_param>("min",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
@@ -1749,6 +1978,7 @@ namespace maxlang {
         seq,
         seqi,
         env,
+        quantize,
         input,
         add,
         minus,
@@ -1813,6 +2043,13 @@ namespace maxlang {
             if(m) delete m;
             m = new m_env(from);
             return modtor_type_enum::env;
+        }
+        
+        if(s == "quantize")
+        {
+            if(m) delete m;
+            m = new m_quantize(from);
+            return modtor_type_enum::quantize;
         }
         
         if(s == "xfade")

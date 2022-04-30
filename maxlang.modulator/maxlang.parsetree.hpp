@@ -92,7 +92,7 @@ namespace maxlang {
             {
                 double v = stod(value_node->string());
                 _modtor_param = new modtor_param(v);
-                _modtor->setparam(name, *_modtor_param);
+                _modtor->setparam(name, _modtor_param);
                 if(name=="seed")
                     _modtor->seed(value_node->string());
                 return 1;
@@ -101,7 +101,7 @@ namespace maxlang {
             {
                 int v = stoi(value_node->string());
                 _modtor_param = new modtor_param(v);
-                _modtor->setparam(name, *_modtor_param);
+                _modtor->setparam(name, _modtor_param);
                 if(name=="seed")
                     _modtor->seed(value_node->string());
                 return 1;
@@ -115,7 +115,7 @@ namespace maxlang {
                     for( auto& child_v : value_node->children )
                         list.push_back(stod(child_v->string()));
                     _modtor_param = new modtor_param(list);
-                    _modtor->setparam(name, *_modtor_param);
+                    _modtor->setparam(name, _modtor_param);
                     return 1;
                     
                 }else
@@ -129,8 +129,9 @@ namespace maxlang {
                 modtor * child_modtor = 0;
                 if(modtree_parse_modtor_expression(*value_node, child_modtor,m_ob, 0.))
                 {
+                    //// ****** BUGFGG
                     _modtor_param = new modtor_param(child_modtor);
-                    _modtor->setparam(name, *_modtor_param);
+                    _modtor->setparam(name,_modtor_param);
                     return 1;
                 }else
                 {
@@ -141,7 +142,7 @@ namespace maxlang {
             {
                 std::string ident = value_node->string();
                 _modtor_param = new modtor_param(ident);
-                _modtor->setparam(name, *_modtor_param);
+                _modtor->setparam(name, _modtor_param);
                 if(name=="seed")
                     _modtor->seed(ident);
                 return 1;

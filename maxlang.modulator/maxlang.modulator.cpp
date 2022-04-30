@@ -70,6 +70,13 @@ public:
         std::string name = av[0].a_w.w_sym->s_name;
         maxlang::modtor * modtor_ = modtor_head;
         
+        if(!modtor_)
+        {
+            object_error(&m_ob,"parameter mess: no modulator yet defined");
+            return;
+        }
+            
+        
         std::string modtor_name;
         
         std::string delimiter = ".";
@@ -127,7 +134,7 @@ public:
             }
             systhread_mutex_lock(mutx);
             if(modtor_)
-                if(modtor_->setparam(name, maxlang::modtor_param(value))==0)
+                if(modtor_->setparam(name, new maxlang::modtor_param(value))==0)
                     object_error(&m_ob, "parameter %s not found",name.c_str());
             systhread_mutex_unlock(mutx);
         }
@@ -156,7 +163,7 @@ public:
             {
                 systhread_mutex_lock(mutx);
                 if(modtor_)
-                    if(modtor_->setparam(name, maxlang::modtor_param(input_list))==0)
+                    if(modtor_->setparam(name, new maxlang::modtor_param(input_list))==0)
                         object_error(&m_ob, "parameter %s not found",name.c_str());
                 systhread_mutex_unlock(mutx);
             }else
@@ -233,6 +240,9 @@ public:
                 if(m_verbose)
                     maxlang::print_node( *root );
                 systhread_mutex_lock(mutx);
+                /*if(modtor_head)
+                    delete modtor_head;
+                 */
                 int ret = maxlang::modtree_make(*root, modtor_head, &m_ob, val);
                 systhread_mutex_unlock(mutx);
                 
@@ -364,7 +374,7 @@ public:
                     {
                         double v = atoms[0].a_w.w_float;
                         _modtor_param = new maxlang::modtor_param(v);
-                        returned_modtor->setparam(name, *_modtor_param);
+                        returned_modtor->setparam(name, _modtor_param);
                         if(name=="seed")
                             returned_modtor->seed(std::to_string(v));
                     }
@@ -372,7 +382,7 @@ public:
                     {
                         int v = atoms[0].a_w.w_long;
                         _modtor_param = new maxlang::modtor_param(v);
-                        returned_modtor->setparam(name, *_modtor_param);
+                        returned_modtor->setparam(name, _modtor_param);
                         if(name=="seed")
                             returned_modtor->seed(std::to_string(v));
 
@@ -382,7 +392,7 @@ public:
                         if(s)
                         {
                             _modtor_param = new maxlang::modtor_param(s);
-                            returned_modtor->setparam(name, *_modtor_param);
+                            returned_modtor->setparam(name, _modtor_param);
                             if(name=="seed")
                                 returned_modtor->seed(std::string(s));
                         }
@@ -397,7 +407,7 @@ public:
                         if(modtorchild)
                         {
                             _modtor_param = new maxlang::modtor_param(modtorchild);
-                            returned_modtor->setparam(name, *_modtor_param);
+                            returned_modtor->setparam(name, _modtor_param);
                         }
                     }
                 }else
@@ -419,7 +429,7 @@ public:
                     }
                     
                     _modtor_param = new maxlang::modtor_param(retlist);
-                    returned_modtor->setparam(name, *_modtor_param);
+                    returned_modtor->setparam(name, _modtor_param);
 
                 }
                 
