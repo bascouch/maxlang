@@ -235,7 +235,7 @@ public:
             object_post(&m_ob, "parsing %s",atoms.c_str());
         try {
             pegtl::string_input input( atoms, std::string("input"));
-        
+            
             if( const auto root = pegtl::parse_tree::parse< maxlang::modtor_start, maxlang::store >(input) ) {
                 if(m_verbose)
                     maxlang::print_node( *root );
@@ -255,7 +255,7 @@ public:
                 {
                     // ALL GOOD -> get refnames
                     named_modtor_ref.clear();
-                    modtor_head->traverse_for_ref(named_modtor_ref);
+                    //modtor_head->traverse_for_ref(named_modtor_ref);
                 }
             }
             else {

@@ -59,30 +59,46 @@ namespace maxlang
     
     // modtor specific
     struct modtor_expression;
-    struct modtor_argument_value : pegtl::sor<double_value,  int_value,  list_expression, bool_value, modtor_expression, lidentifier > {};
+    struct modtor_def;
+    struct modtor_operator_argument;
+    struct modtor_operator_expression;
+    struct modtor_expression_arithm;
+
+    struct modtor_argument_value : pegtl::sor<double_value,  int_value,  list_expression, bool_value, modtor_expression_arithm, lidentifier > {};
     struct modtor_argument_name : litteral {};
+    
+    struct modtor_argument_variable_name : litteral {};
 
-    struct modtor_argument_variable : pegtl::seq< pegtl::one<'$'>, litteral > {};
+    struct modtor_argument_variable : pegtl::seq< pegtl::one<'$'>, modtor_argument_variable_name > {};
 
-    struct modtor_argument_num_value : pegtl::sor<double_value,  int_value, modtor_argument_variable, modtor_expression > {};
+    struct modtor_expression_num_value : pegtl::sor<double_value,  int_value, modtor_argument_variable, modtor_def > {};
 
     struct modtor_operator :  pegtl::sor<pegtl::one<'+'>, pegtl::one<'-'>, pegtl::one<'*'>, pegtl::one<'/'> >  {};
 
-    struct modtor_expression_operator : pegtl::seq< modtor_operator, seps,modtor_argument_num_value  > {};
-    
+
     struct modtor_type : litteral {};
     
     struct modtor_argument : pegtl::seq< modtor_argument_name, seps, pegtl::one<'='>, seps, modtor_argument_value, seps > {};
     
     struct modtor_arguments : pegtl::seq<pegtl::one<'('>, seps, pegtl::star<modtor_argument>, seps, pegtl::one<')'>> {};
     
-    struct modtor_def : pegtl::seq<modtor_type, seps, modtor_arguments > {};
+    struct modtor_def : pegtl::seq< seps, modtor_type, seps, modtor_arguments > {};
+        
+    struct modtor_operator_expression_brack : pegtl::seq<pegtl::one<'('>, seps, modtor_operator_expression, seps, pegtl::one<')'> >  {};
+
+    struct modtor_operator_argument : pegtl::sor<modtor_expression_num_value, modtor_operator_expression_brack>  {};
+
+    struct modtor_operator_expression : pegtl::seq<seps,modtor_operator_argument, seps, modtor_operator, seps, modtor_operator_argument >  {};
     
-    struct modtor_expression : pegtl::seq< modtor_def, seps, pegtl::star< pegtl::seq<modtor_expression_operator, seps> >> {};
+    struct modtor_expression_arithm : pegtl::sor<modtor_operator_expression,modtor_operator_expression_brack,modtor_def> {};
     
-    struct modtor_start : pegtl::must< modtor_expression, seps, pegtl::eolf > {};
+    struct modtor_expression_start : pegtl::seq<seps, modtor_expression_arithm, seps, pegtl::eolf> {};
+    struct modtor_def_start : pegtl::seq<seps, modtor_def, seps, pegtl::eolf> {};
+
     
-    struct modtor_argument_value_start : pegtl::must< modtor_argument_value, seps, pegtl::eolf > {};
+    struct modtor_start : pegtl::sor< modtor_def_start,modtor_expression_start > {};
+    
+    struct modtor_argument_value_start : pegtl::must< seps, modtor_argument_value, seps, pegtl::eolf > {};
     
     // Rules for constructing the parse tree
     //
@@ -159,7 +175,6 @@ namespace maxlang
     template<> struct store<bool_value> : std::true_type {};
     template<> struct store<int_value> : std::true_type {};
     template<> struct store<positive_int_value> : std::false_type {};
-    template<> struct store<modtor_expression> : std::true_type {};
     template<> struct store<lidentifier> : std::true_type {};
     template<> struct store<modtor_type> : std::true_type {};
     template<> struct store<modtor_arguments> : std::true_type {};
@@ -168,9 +183,13 @@ namespace maxlang
     template<> struct store<modtor_argument_value> : std::true_type {};
     template<> struct store<list_expression> : std::true_type {};
     template<> struct store<modtor_argument_variable> : std::true_type {};
-    template<> struct store<modtor_argument_num_value> : std::true_type {};
+    //template<> struct store<modtor_expression_num_value> : std::true_type {};
+    template<> struct store<modtor_operator_expression> : std::true_type {};
     template<> struct store<modtor_operator> : std::true_type {};
-    template<> struct store<modtor_expression_operator> : std::true_type {};
+    template<> struct store<modtor_operator_argument> : std::true_type {};
+    template<> struct store<modtor_def> : std::true_type {};
+
+
 
 
     // clang-format on

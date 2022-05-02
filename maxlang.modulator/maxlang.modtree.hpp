@@ -1989,6 +1989,36 @@ namespace maxlang {
     
     modtor_type_enum modtor_create_fromstring(std::string s, modtor *&m, double from)
     {
+        /* operators */
+        if(s == "add" || s == "+")
+        {
+            if(m) delete m;
+            m = new m_add(from);
+            return modtor_type_enum::add;
+        }
+        
+        if(s == "minus" || s == "-")
+        {
+            if(m) delete m;
+            m = new m_minus(from);
+            return modtor_type_enum::minus;
+        }
+        
+        if(s == "mul" || s == "*")
+        {
+            if(m) delete m;
+            m = new m_mul(from);
+            return modtor_type_enum::mul;
+        }
+        
+        if(s == "div" || s == "/")
+        {
+            if(m) delete m;
+            m = new m_div(from);
+            return modtor_type_enum::div;
+        }
+        
+        /* modulators */
         if(s == "lfo")
         {
             if(m) delete m;
@@ -2058,6 +2088,7 @@ namespace maxlang {
             m = new m_xfade(from);
             return modtor_type_enum::xfade;
         }
+        
         
         if(s == "input")
         {
