@@ -16,7 +16,7 @@ namespace pegtl = tao::pegtl;
 #include "maxlang.grammar.hpp"
 #include "maxlang.modtree.hpp"
 #include "maxlang.parsetree.hpp"
-
+#include "maxlang.macrotree.hpp"
 
 class maxlang_modulator : public MaxCpp6<maxlang_modulator> {
 public:
@@ -255,7 +255,7 @@ public:
                 {
                     // ALL GOOD -> get refnames
                     named_modtor_ref.clear();
-                    //modtor_head->traverse_for_ref(named_modtor_ref);
+                    modtor_head->traverse_for_ref(named_modtor_ref);
                 }
             }
             else {

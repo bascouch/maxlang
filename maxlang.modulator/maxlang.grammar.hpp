@@ -100,6 +100,17 @@ namespace maxlang
     
     struct modtor_argument_value_start : pegtl::must< seps, modtor_argument_value, seps, pegtl::eolf > {};
     
+
+    // macro specific
+
+    struct macro_arguments : pegtl::seq<pegtl::one<'('>, seps, pegtl::opt<list_value>, seps, pegtl::one<')'>> {};
+    struct macro_type_name : litteral {};
+    struct macro_type : pegtl::seq< pegtl::one<'@'>, macro_type_name > {};
+    struct macro_def : pegtl::seq< seps, macro_type, seps, macro_arguments > {};
+    
+    struct macro_unmatched : pegtl::plus< pegtl::not_one<'@'> >{};
+    struct macro_start : pegtl::seq< pegtl::plus< pegtl::sor< macro_unmatched , macro_def> >, pegtl::eolf > {};
+
     // Rules for constructing the parse tree
     //
 
@@ -189,7 +200,9 @@ namespace maxlang
     template<> struct store<modtor_operator_argument> : std::true_type {};
     template<> struct store<modtor_def> : std::true_type {};
 
-
+    template<> struct store<macro_def> : std::true_type {};
+    template<> struct store<macro_type_name> : std::true_type {};
+    template<> struct store<macro_unmatched> : std::true_type {};
 
 
     // clang-format on

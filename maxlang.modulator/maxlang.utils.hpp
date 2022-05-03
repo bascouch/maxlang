@@ -15,6 +15,8 @@
 
 #include <uuid/uuid.h>
 
+#include <sstream>
+
 namespace maxlang
 {
 
@@ -23,7 +25,6 @@ namespace maxlang
     std::string generateUUID(){
         std::string uuid = std::string(36,' ');
         int rnd = 0;
-        int r = 0;
         
         uuid[8] = '-';
         uuid[13] = '-';
@@ -43,6 +44,16 @@ namespace maxlang
         }
         return uuid;
     }
+
+    template <typename T>
+    std::string to_string_with_precision(const T a_value, const int n = 6)
+    {
+        std::ostringstream out;
+        out.precision(n);
+        out << std::fixed << a_value;
+        return out.str();
+    }
+
     
     double modulo(double v, double mod)
     {
@@ -156,6 +167,18 @@ namespace maxlang
         
         void setout_max(double _out_max)
         {
+            out_max  = _out_max;
+            dy = out_max - out_min;
+            if(curve<0)
+                dy *=-1;
+        }
+        
+        void setinout_minmax(double _in_min, double _in_max,double _out_min,double _out_max)
+        {
+            in_min  = _in_min;
+            in_max = _in_max;
+            dx = in_max - in_min;
+            out_min  = _out_min;
             out_max  = _out_max;
             dy = out_max - out_min;
             if(curve<0)
