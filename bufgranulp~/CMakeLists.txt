@@ -39,5 +39,5 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/../../max-sdk-base/script/max-posttarget.cma
 add_custom_command(
         TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
-                ${CMAKE_CURRENT_SOURCE_DIR}/../../../externals/${PROJECT_NAME}.mxo
-                ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.mxo)
+                ${CMAKE_CURRENT_SOURCE_DIR}/../../../externals/bufgranulp~.mxo
+                ${CMAKE_CURRENT_SOURCE_DIR}/bufgranulp~.mxo)
