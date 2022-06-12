@@ -85,7 +85,6 @@ int macro_apply(const pegtl::parse_tree::node& n, std::vector<std::string>& out_
     
     for( auto& node : n.children ) {
         
-        maxlang::print_node( *node );
         if( node->type == "maxlang::macro_unmatched" )
             for( int i=0; i<num; i++ )
                 out_str[i] += node->string();
@@ -406,11 +405,8 @@ int macro_parse_and_apply(const std::string& input, const int n,std::vector<std:
         std::cout << "PARSE FAILED" << std::endl;
         return 0;
     }
-    
-    maxlang::print_node( *root );
-
-    out_str.clear();
-    out_str.assign(10,"");
+    for(auto &str : out_str)
+        str.clear();
     
     return macro_apply(*root, out_str, n, m_ob );
 

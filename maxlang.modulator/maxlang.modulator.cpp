@@ -21,37 +21,65 @@ namespace pegtl = tao::pegtl;
 class maxlang_modulator : public MaxCpp6<maxlang_modulator> {
 public:
 	maxlang_modulator(t_symbol * sym, long ac, t_atom * av) {
-		setupIO(1, 2); // inlets / outlets
+		setupIO(1, 3); // inlets / outlets
+        long v;
+        
+        // num channels
+        if(ac> 0)
+            switch(av[0].a_type)
+            {
+                case A_LONG:
+                    v = av[0].a_w.w_long;
+                    n_chans = (v > 1)? v : 1;
+                    break;
+                case A_FLOAT:
+                    break;
+                case A_SYM:
+                    break;
+            }
+        
+        // fill modtor vector with null pointers
+        modtor_vector.resize(n_chans, 0);
+        modtor_sources.resize(n_chans);
+        std::map<std::string,maxlang::modtor*> modtor_ref;
+        named_modtor_ref_vector.resize(n_chans, modtor_ref);
+        
+        outlist = new t_atom[n_chans];
+        outstring = new t_atom[2];
+        lastval = new double[n_chans];
         
         systhread_mutex_new(&mutx, SYSTHREAD_MUTEX_NORMAL);
-        // create clock
-        //m_clock = clock_new(m_ob, (void (maxlang_modulator::*)(t_object*)) clock_tick)); // make a clock
 
         
 	}
 	~maxlang_modulator() {
-        if(modtor_head)
-            delete modtor_head;
-        // delete clock
-        //freeobject((t_object *)m_clock);
+        modtor_vector.clear();
+        delete outlist;
+
     }
 	
 	// methods:
 	void bang(long inlet) {
-        
+        int k=0;
         double time = getTack();
         // mutex lock
         systhread_mutex_lock(mutx);
-        if(modtor_head)
+        for(auto &modtor_head : modtor_vector)
         {
-            val = modtor_head->get(time);
+            if(modtor_head)
+            {
+                lastval[k] = modtor_head->get(time);
+            }else
+                lastval[k] = 0.;
+            atom_setfloat(outlist+k,lastval[k]);
+            k++;
         }
         // mutex unlock
         systhread_mutex_unlock(mutx);
         
         pushTack();
         outlet_float(m_outlets[1],time);
-        outlet_float(m_outlets[0],val);
+        outlet_list(m_outlets[0],0L,n_chans,outlist);
 	}
     
     void parameter(long inlet, t_symbol * s, long ac, t_atom * av) {
@@ -68,7 +96,7 @@ public:
         // • sub-modtor by name.parameter
         
         std::string name = av[0].a_w.w_sym->s_name;
-        maxlang::modtor * modtor_ = modtor_head;
+        maxlang::modtor * modtor_ = modtor_vector[0];
         
         if(!modtor_)
         {
@@ -76,6 +104,7 @@ public:
             return;
         }
             
+        std::vector<maxlang::modtor*> modtor_ref;
         
         std::string modtor_name;
         
@@ -86,15 +115,16 @@ public:
             modtor_name = name.substr(0,pos);
             name.erase(0,pos+1);
             
-            if(named_modtor_ref.find(modtor_name)!=named_modtor_ref.end())
-            {
-                modtor_ = named_modtor_ref[modtor_name];
-            }
-            else
-            {
-                object_error(&m_ob, "modtor named %s not found",modtor_name.c_str());
-                return;
-            }
+            for(int i=0; i< n_chans; i++)
+                if(named_modtor_ref_vector[i].find(modtor_name)!=named_modtor_ref_vector[i].end())
+                {
+                    modtor_ref.push_back(named_modtor_ref_vector[i][modtor_name]);
+                }
+                else
+                {
+                    object_error(&m_ob, "modtor named %s not found",modtor_name.c_str());
+                    return;
+                }
         }
         
         // CHECK FOR any of the arguments are symbol => modtor parameter parsing
@@ -115,7 +145,7 @@ public:
             // pop first paramter : name
             av++;
             ac--;
-            parse_parameter(ac,av,modtor_,name);
+            parse_parameter(ac,av,modtor_ref,name);
             return;
         }
         
@@ -134,8 +164,12 @@ public:
             }
             systhread_mutex_lock(mutx);
             if(modtor_)
-                if(modtor_->setparam(name, new maxlang::modtor_param(value))==0)
+            {
+                for(auto &modtor_v : modtor_vector)
+                if(modtor_v->setparam(name, new maxlang::modtor_param(value))==0)
                     object_error(&m_ob, "parameter %s not found",name.c_str());
+                    
+            }
             systhread_mutex_unlock(mutx);
         }
         if (ac>2)
@@ -163,8 +197,12 @@ public:
             {
                 systhread_mutex_lock(mutx);
                 if(modtor_)
-                    if(modtor_->setparam(name, new maxlang::modtor_param(input_list))==0)
+                {
+                    for(auto &modtor_v : modtor_vector)
+                    if(modtor_v->setparam(name, new maxlang::modtor_param(input_list))==0)
                         object_error(&m_ob, "parameter %s not found",name.c_str());
+                        
+                }
                 systhread_mutex_unlock(mutx);
             }else
                 object_error(&m_ob, "input list is too short for %s",name.c_str());
@@ -191,17 +229,13 @@ public:
             }
         
         systhread_mutex_lock(mutx);
-        if(modtor_head)
+        for(auto &modtor_head : modtor_vector)
             modtor_head->sync(phase);
         systhread_mutex_unlock(mutx);
     }
 	
 	void test(long inlet, t_symbol * s, long ac, t_atom * av) {
-        std::string name("max");
-        systhread_mutex_lock(mutx);
-        if(modtor_head)
-        {}
-        systhread_mutex_unlock(mutx);
+
 	}
     
     void verbose(long inlet, t_symbol * s, long ac, t_atom * av) {
@@ -233,35 +267,59 @@ public:
             }
         if(m_verbose)
             object_post(&m_ob, "parsing %s",atoms.c_str());
+        
+        // macro replace
+        
         try {
-            pegtl::string_input input( atoms, std::string("input"));
-            
-            if( const auto root = pegtl::parse_tree::parse< maxlang::modtor_start, maxlang::store >(input) ) {
-                if(m_verbose)
-                    maxlang::print_node( *root );
-                systhread_mutex_lock(mutx);
-                /*if(modtor_head)
-                    delete modtor_head;
-                 */
-                int ret = maxlang::modtree_make(*root, modtor_head, &m_ob, val);
-                systhread_mutex_unlock(mutx);
+            if(!maxlang::macro_parse_and_apply(atoms, n_chans, modtor_sources, &m_ob))
+            {
+                object_error(&m_ob, "macro parse and apply error in %s",atoms.c_str());
+                return;
+            }
                 
-                if(!ret)
-                {
-                    object_error(&m_ob, "error making modtree : %s",atoms.c_str());
+        }
+        catch( const std::exception& e ) {
+            object_error(&m_ob, "macro error %s in %s",e.what(),atoms.c_str());
+            return;
+            }
+        
+        // parse * n_chans
+        try {
+            for(int i=0; i< n_chans; i++)
+            {
+                pegtl::string_input input( modtor_sources[i], std::string("input"));
+            
+                if( const auto root = pegtl::parse_tree::parse< maxlang::modtor_start, maxlang::store >(input) ) {
+                    if(m_verbose)
+                        maxlang::print_node( *root );
+                    systhread_mutex_lock(mutx);
+
+                    int ret = maxlang::modtree_make(*root, modtor_vector[i], &m_ob, lastval[i]);
+                    systhread_mutex_unlock(mutx);
+                    
+                    if(!ret)
+                    {
+                        object_error(&m_ob, "error making modtree : %s",atoms.c_str());
+                        return;
+                    }
+                    else
+                    {
+                        // ALL GOOD -> get refnames
+                        named_modtor_ref_vector[i].clear();
+                        modtor_vector[i]->traverse_for_ref(named_modtor_ref_vector[i]);
+                    }
+                }
+                else {
+                    object_error(&m_ob, "error parsing %s",atoms.c_str());
                     return;
                 }
-                else
-                {
-                    // ALL GOOD -> get refnames
-                    named_modtor_ref.clear();
-                    modtor_head->traverse_for_ref(named_modtor_ref);
-                }
+                
+                atom_setlong(outstring,i);
+                atom_setsym(outstring+1,gensym(modtor_sources[i].c_str()));
+                outlet_list(m_outlets[2], 0L, 2,outstring);
+                
+                
             }
-            else {
-                object_error(&m_ob, "error parsing %s",atoms.c_str());
-                return;
-        }
     }
     catch( const std::exception& e ) {
         object_error(&m_ob, "parse error %s in %s",e.what(),atoms.c_str());
@@ -270,7 +328,7 @@ public:
         
     }
     
-    void parse_parameter( long ac, t_atom * av, maxlang::modtor *&modtor, std::string arg_name) {
+    void parse_parameter( long ac, t_atom * av, std::vector<maxlang::modtor*> &modtor_ref, std::string arg_name) {
         std::string name;
         std::string atoms;
         
@@ -293,31 +351,46 @@ public:
         if(m_verbose)
             object_post(&m_ob, "parsing %s",atoms.c_str());
         try {
-            pegtl::string_input input( atoms, std::string("input"));
-            
-            if( const auto root = pegtl::parse_tree::parse< maxlang::modtor_argument_value_start, maxlang::store >(input) ) {
-                if(m_verbose)
-                    maxlang::print_node( *root );
-                systhread_mutex_lock(mutx);
-                int ret = maxlang::valtree_make(*root, modtor, arg_name ,&m_ob, val);
-                systhread_mutex_unlock(mutx);
-                
-                if(!ret)
-                {
-                    object_error(&m_ob, "error making valtree : %s",atoms.c_str());
-                    return;
-                }
-                else
-                {
-                    // ALL GOOD -> get refnames
-                    named_modtor_ref.clear();
-                    modtor_head->traverse_for_ref(named_modtor_ref);
-                }
-            }
-            else {
-                object_error(&m_ob, "error parsing %s",atoms.c_str());
+            if(!maxlang::macro_parse_and_apply(atoms, n_chans, modtor_sources_param, &m_ob))
+            {
+                object_error(&m_ob, "macro parse and apply error in %s",atoms.c_str());
                 return;
             }
+                
+        }
+        catch( const std::exception& e ) {
+            object_error(&m_ob, "macro error %s in %s",e.what(),atoms.c_str());
+            return;
+            }
+        
+        try {
+            for(int i=0; i< n_chans; i++)
+            {
+                pegtl::string_input input( atoms, std::string("input"));
+                
+                if( const auto root = pegtl::parse_tree::parse< maxlang::modtor_argument_value_start, maxlang::store >(input) ) {
+                    if(m_verbose)
+                        maxlang::print_node( *root );
+                    systhread_mutex_lock(mutx);
+                    
+                    int ret = maxlang::valtree_make(*root, modtor_ref[i], arg_name ,&m_ob, lastval[i]);
+                    systhread_mutex_unlock(mutx);
+                    
+                    if(!ret)
+                    {
+                        object_error(&m_ob, "error making valtree : %s",atoms.c_str());
+                        return;
+                    }
+                    else
+                    {
+                        named_modtor_ref_vector[i].clear();
+                        modtor_vector[i]->traverse_for_ref(named_modtor_ref_vector[i]);
+                    }
+                }
+                else {
+                    object_error(&m_ob, "error parsing %s",atoms.c_str());
+                    return;
+            }}
         }
         catch( const std::exception& e ) {
             object_error(&m_ob, "parse error %s in %s",e.what(),atoms.c_str());
@@ -336,7 +409,7 @@ public:
         {
             const char * modtor_type;
             dictionary_getstring(d,modtor_key, &modtor_type);
-            maxlang::modtor_type_enum modtor_type_e = modtor_create_fromstring(modtor_type,returned_modtor,val);
+            maxlang::modtor_type_enum modtor_type_e = modtor_create_fromstring(modtor_type,returned_modtor,0.);
             if(modtor_type_e == maxlang::modtor_type_enum::unknown)
             {
                 object_error(&m_ob, "unknown modtor type %s",modtor_type);
@@ -377,6 +450,8 @@ public:
                         returned_modtor->setparam(name, _modtor_param);
                         if(name=="seed")
                             returned_modtor->seed(std::to_string(v));
+                        if(name=="sync")
+                            returned_modtor->sync(v);
                     }
                     else if (atoms[0].a_type == A_LONG)
                     {
@@ -385,6 +460,8 @@ public:
                         returned_modtor->setparam(name, _modtor_param);
                         if(name=="seed")
                             returned_modtor->seed(std::to_string(v));
+                        if(name=="sync")
+                            returned_modtor->sync(v);
 
                     }else if (atoms[0].a_type == A_SYM)
                     {
@@ -430,11 +507,7 @@ public:
                     
                     _modtor_param = new maxlang::modtor_param(retlist);
                     returned_modtor->setparam(name, _modtor_param);
-
                 }
-                
-                
-                
             }
             if(keys)
                 dictionary_freekeys(d, numkeys, keys);
@@ -457,16 +530,19 @@ public:
                 object_error(&m_ob, "unable to reference dictionary named %s", s);
                 return;
             }
-            
-            maxlang::modtor * modtor = dictionary_parse(d);
-            if(modtor)
+            for(int i=0; i< n_chans; i++)
             {
-                if(modtor_head)
-                    delete modtor_head;
-                modtor_head = modtor;
-                named_modtor_ref.clear();
-                modtor_head->traverse_for_ref(named_modtor_ref);
-                return;
+                maxlang::modtor * modtor = dictionary_parse(d);
+                if(modtor)
+                {
+                    if(modtor_vector[i])
+                        delete modtor_vector[i];
+                    modtor_vector[i] = modtor;
+                    named_modtor_ref_vector[i].clear();
+                    modtor_vector[i]->traverse_for_ref(named_modtor_ref_vector[i]);
+                    return;
+                }
+                
             }
         }
         else
@@ -483,40 +559,18 @@ public:
     void clear(long inlet)
     {
         systhread_mutex_lock(mutx);
-        if(modtor_head)
+        for(int i=0; i<n_chans; i++)
         {
-            delete modtor_head;
-            modtor_head = NULL;
-            named_modtor_ref.clear();
-
+            if(modtor_vector[i]){
+                delete modtor_vector[i];
+                modtor_vector[i] = NULL;
+                named_modtor_ref_vector[i].clear();
+            }
         }
         systhread_mutex_unlock(mutx);
         
     }
     
-    
-    // CLOCKING
-    /* void clock_start()
-    {
-        clock_fdelay(m_clock,0.);
-    }
-    
-    void clock_stop()
-    {
-        clock_unset(m_clock);
-    }
-    
-    void clock_interval()
-    {
-        
-    }
-    
-    void clock_tick(t_object * x)
-    {
-        clock_fdelay(m_clock, m_interval);
-        // output modulator val
-        bang(0);
-    }*/
     
     
     // TIMING
@@ -564,10 +618,17 @@ public:
     
     int use_system_clock=0;
     
-    maxlang::modtor * modtor_head;
-    std::map<std::string,maxlang::modtor*> named_modtor_ref;
+    int n_chans = 1;
+    t_atom * outlist;
+    t_atom * outstring;
+    double * lastval;
+    
+    std::vector<maxlang::modtor *> modtor_vector;
+    std::vector<std::string> modtor_sources;
+    std::vector<std::string> modtor_sources_param;
+    std::vector<std::map<std::string,maxlang::modtor*>> named_modtor_ref_vector;
     t_systhread_mutex mutx;
-    double val=0;
+    
     
     // internal clock // disabled
     void *m_clock;

@@ -195,6 +195,8 @@ namespace maxlang {
                 _modtor->setparam(name, _modtor_param);
                 if(name=="seed")
                     _modtor->seed(value_node->string());
+                if(name=="sync")
+                    _modtor->sync(v);
                 return 1;
             }
             else if (value_node->type == "maxlang::int_value")
@@ -204,6 +206,8 @@ namespace maxlang {
                 _modtor->setparam(name, _modtor_param);
                 if(name=="seed")
                     _modtor->seed(value_node->string());
+                if(name=="sync")
+                    _modtor->sync(v);
                 return 1;
             }
             else if (value_node->type == "maxlang::list_expression")

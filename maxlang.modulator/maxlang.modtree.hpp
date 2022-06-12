@@ -77,6 +77,12 @@ namespace maxlang {
                 params[name] = *value;
                 return 1;
             }
+            // common seed param
+            if(name=="sync")
+            {
+                params[name] = *value;
+                return 1;
+            }
             // else specific modtor param
             if ( params.find(name) == params.end() )
             { // not found
@@ -88,6 +94,7 @@ namespace maxlang {
                 params[name] = *value;
                 //std::cout << value._type << std::endl;
             }
+            
             return 1;
         }
         
@@ -226,7 +233,7 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("mode",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("pw",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("min",modtor_param(from)));
+            params.insert(std::pair<std::string, modtor_param>("min",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
@@ -501,7 +508,7 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(6.)));
             params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("walk",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("min",modtor_param(from)));
+            params.insert(std::pair<std::string, modtor_param>("min",modtor_param(0)));
             params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("segcurve",modtor_param(0.)));
@@ -630,7 +637,7 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(6.)));
             params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("walk",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("min",modtor_param(from)));
+            params.insert(std::pair<std::string, modtor_param>("min",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
@@ -1092,6 +1099,8 @@ namespace maxlang {
                 m_val_target = m_list[(m_last_index+1)%m_list_l];
                 phase = 0;
                 
+                return add+m_val_prev*mul;
+                
             }
             
             if(!play)
@@ -1240,6 +1249,8 @@ namespace maxlang {
                 m_val = m_list[m_last_index];
                 phase = 0;
                 
+                return add+(m_val*mul);
+                
             }
             
             if(!play)
@@ -1254,7 +1265,7 @@ namespace maxlang {
                 phase += r_freq*deltatime/1000.;
                 
                 
-                if (phase > 1.)
+                if (phase >= 1.)
                 {   // reset : new freq jitter varifreq
                     
                     
