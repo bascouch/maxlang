@@ -41,6 +41,8 @@ public:
         // fill modtor vector with null pointers
         modtor_vector.resize(n_chans, 0);
         modtor_sources.resize(n_chans);
+        modtor_sources_param.resize(n_chans);
+        
         std::map<std::string,maxlang::modtor*> modtor_ref;
         named_modtor_ref_vector.resize(n_chans, modtor_ref);
         
@@ -105,26 +107,73 @@ public:
         }
             
         std::vector<maxlang::modtor*> modtor_ref;
+        std::vector<maxlang::modtor*> modtor_ref_current;
+        modtor_ref_current.resize(n_chans);
         
         std::string modtor_name;
         
+        std::vector<std::string> nodes;
+        bool delim_found = false;
+        
         std::string delimiter = ".";
-        int pos = name.find_last_of(delimiter);
-        if( pos != std::string::npos) // '.' found
+        
+
+        size_t pos = 0;
+        
+        while ((pos = name.find(delimiter)) != std::string::npos) {
+            nodes.push_back(name.substr(0, pos));
+            //std::cout << tokens.end() << std::endl;
+            name.erase(0, pos + delimiter.length());
+            delim_found = true;
+        }
+        
+        if( delim_found ) // '.' found
         {
-            modtor_name = name.substr(0,pos);
-            name.erase(0,pos+1);
+            // check if first node is found in named modtor ref
+            modtor_name = nodes[0];
+            if(named_modtor_ref_vector[0].find(modtor_name)!=named_modtor_ref_vector[0].end())
+            {
+                for(int i=0; i< n_chans; i++)
+                    modtor_ref_current[i] = named_modtor_ref_vector[i][modtor_name];
+                // remove first node
+                nodes.erase(nodes.begin());
+            }else
+            {
+                for(int i=0; i< n_chans; i++)
+                    modtor_ref_current[i] = modtor_vector[i];
+               
+            }
             
+            while(nodes.size()>0)
+            {
+                modtor_name = nodes[0];
+                maxlang::modtor * tmp_modtor;
+                for(int i=0; i<n_chans; i++)
+                {
+                    if(tmp_modtor = modtor_ref_current[i]->get_param_modtor(modtor_name))
+                    {
+                        modtor_ref_current[i] = tmp_modtor;
+                    }
+                    else
+                    {
+                        object_error(&m_ob, "modtor node %s not found",modtor_name.c_str());
+                        return;
+                    }
+                }
+                
+                nodes.erase(nodes.begin());
+                
+            }
+            
+            // fill with modtor_ref_current
             for(int i=0; i< n_chans; i++)
-                if(named_modtor_ref_vector[i].find(modtor_name)!=named_modtor_ref_vector[i].end())
-                {
-                    modtor_ref.push_back(named_modtor_ref_vector[i][modtor_name]);
-                }
-                else
-                {
-                    object_error(&m_ob, "modtor named %s not found",modtor_name.c_str());
-                    return;
-                }
+                modtor_ref.push_back(modtor_ref_current[i]);
+        }
+        else
+        {
+            // fill with root modtor
+            for(int i=0; i< n_chans; i++)
+                modtor_ref.push_back(modtor_vector[i]);
         }
         
         // CHECK FOR any of the arguments are symbol => modtor parameter parsing
@@ -165,7 +214,7 @@ public:
             systhread_mutex_lock(mutx);
             if(modtor_)
             {
-                for(auto &modtor_v : modtor_vector)
+                for(auto &modtor_v : modtor_ref)
                 if(modtor_v->setparam(name, new maxlang::modtor_param(value))==0)
                     object_error(&m_ob, "parameter %s not found",name.c_str());
                     
@@ -198,7 +247,7 @@ public:
                 systhread_mutex_lock(mutx);
                 if(modtor_)
                 {
-                    for(auto &modtor_v : modtor_vector)
+                    for(auto &modtor_v : modtor_ref)
                     if(modtor_v->setparam(name, new maxlang::modtor_param(input_list))==0)
                         object_error(&m_ob, "parameter %s not found",name.c_str());
                         

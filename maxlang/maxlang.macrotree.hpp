@@ -28,7 +28,9 @@ namespace maxlang {
  @nrange(n min max curve)
  @list(val1 val2 ...)
  @inc(start inc)
- @ninc(n start inc max)
+ @ninc(n start inc)
+ @mult(start mult)
+ @nmult(n start mult)
  */
 
 int macro_get_int(const pegtl::parse_tree::node& n)
@@ -272,6 +274,41 @@ int macro_apply(const pegtl::parse_tree::node& n, std::vector<std::string>& out_
                         s = std::to_string(val);
                         out_str[i] += macro_dshrnk(s);
                         val += inc;
+                    }
+                    
+                }
+                
+            }else if(name == "mult")
+            {
+                double start = (num_c-- > 0)? macro_get_double(*node->children[1].get()) : 0;
+                double mult = (num_c-- > 0)? macro_get_double(*node->children[2].get()) : 1;
+                
+                double val = start;
+                
+                for( int i=0; i<num; i++ )
+                {
+                    s = std::to_string(val);
+                    out_str[i] += macro_dshrnk(s);
+                    val *= mult;
+                }
+                
+            }
+            else if (name == "nmult")
+            {
+                int vnum = (num_c-- > 0)? macro_get_int(*node->children[1].get()) : 1;
+                double start = (num_c-- > 0)? macro_get_double(*node->children[2].get()) : 0;
+                double mult = (num_c-- > 0)? macro_get_double(*node->children[3].get()) : 1;
+                
+                double val;
+                
+                for( int i=0; i<num; i++ )
+                {
+                    val = start;
+                    for(int j=0; j< vnum; j++)
+                    {
+                        s = std::to_string(val);
+                        out_str[i] += macro_dshrnk(s);
+                        val *= mult;
                     }
                     
                 }

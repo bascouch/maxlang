@@ -33,6 +33,7 @@ namespace maxlang {
         ~modtor_param();
         
         double get(double deltatime);
+        void sync(double phase);
         void set(double value);
         std::vector<double> getlist();
         std::string getstring();
@@ -46,6 +47,14 @@ namespace maxlang {
         modtor * _modtor=0;
         std::string _string;
         
+        // buffer
+        double * buffer = 0;
+        long n_buffer=0;
+        
+        modtor_param * buffer_proc(int numframes,double deltatime);
+        double get_b(int i);
+        
+        
     };
     
     
@@ -58,10 +67,12 @@ namespace maxlang {
         {}
         
         virtual double get(double deltatime) = 0;
+        
+        virtual void perform(double * values,int numframes,double deltatime) = 0;
+
         virtual void sync(double phase) = 0;
         virtual void seed(std::string seed_string) = 0;
-        
-        
+                
         int setparam(std::string name, modtor_param *value)
         {
             // check if param is a refname
@@ -96,6 +107,17 @@ namespace maxlang {
             }
             
             return 1;
+        }
+        
+        modtor* get_param_modtor(std::string name)
+        {
+            if ( params.find(name) == params.end() )
+            { // not found
+                return 0;
+            } else {
+                // found
+                return params[name].getmodtor();
+            }
         }
         
         int traverse_for_ref(std::map<std::string,maxlang::modtor*> &name_ref)
@@ -177,8 +199,18 @@ namespace maxlang {
             delete _modtor;
         if(modtor_param_type::e_list)
             _list.clear();
+        if( n_buffer || buffer)
+        {
+            free(buffer);
+        }
          
         
+    }
+
+    void modtor_param::sync(double phase)
+    {
+        if(_type == modtor_param_type::e_modtor)
+            _modtor->sync(phase);
     }
     
     double modtor_param::get(double deltatime)
@@ -220,6 +252,57 @@ namespace maxlang {
     {
         _value_d=value;
         
+    }
+
+    modtor_param * modtor_param::buffer_proc(int numframes,double deltatime)
+    {
+        double val;
+        double k = numframes;
+        
+        
+        if(n_buffer != numframes)
+        {
+            if(buffer)
+                free(buffer);
+            buffer = (double *) malloc(numframes*sizeof(double));
+            n_buffer = numframes;
+        }
+        
+        double * buf_p = buffer;
+        
+        switch (_type)
+        {
+            case modtor_param_type::e_double:
+                val =  _value_d;
+                while(k--)
+                    *(buf_p++) = val;
+                break;
+            case modtor_param_type::e_int:
+                val = _value_i;
+                while(k--)
+                    *(buf_p++) = val;
+                break;
+            case modtor_param_type::e_list:
+                val = 0.;
+                while(k--)
+                    *(buf_p++) = val;
+                break;
+            case modtor_param_type::e_string:
+                val = 0.;
+                while(k--)
+                    *(buf_p++) = val;
+                break;
+            case modtor_param_type::e_modtor:
+                _modtor->perform(buffer, numframes, deltatime);
+                break;
+            
+        }
+        return this;
+    }
+
+    double modtor_param::get_b(int i)
+    {
+        return buffer[i];
     }
     
 
@@ -267,6 +350,7 @@ namespace maxlang {
         std::mt19937 mt_gen;
         std::uniform_real_distribution<double> mt_rand;
         
+        
         void seed(std::string seed_str) override
         {
             // for time randomization : reverse string
@@ -279,6 +363,8 @@ namespace maxlang {
         void sync(double _phase) override
         {
             phase = _phase;
+            for (auto &p : params)
+                p.second.sync(phase);
         }
         
         double wave(double phase, double mode, double pw )
@@ -322,6 +408,82 @@ namespace maxlang {
             return w;
         }
         
+        
+        
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
+            modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
+            modtor_param * p_mode = params["mode"].buffer_proc(numframes, deltatime);
+            modtor_param * p_pw = params["pw"].buffer_proc(numframes, deltatime);
+            modtor_param * p_min = params["min"].buffer_proc(numframes, deltatime);
+            modtor_param * p_max = params["max"].buffer_proc(numframes, deltatime);
+            modtor_param * p_curve = params["curve"].buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
+            modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
+            
+            modtor_param * p_time = 0;
+            
+            bool time_mode = params.find("time") != params.end();
+            
+            if(time_mode)
+                p_time = params["time"].buffer_proc(numframes, deltatime);
+
+            if(params.find("varitime") != params.end())
+                p_varifreq = params["varitime"].buffer_proc(numframes, deltatime);
+            
+            for(int i=0; i<numframes; i++)
+            {
+                // get all the parameters (check time or freq format)
+                double freq = p_freq->get_b(i);;
+                double varifreq = p_varifreq->get_b(i);
+                
+                if(time_mode)
+                    freq = 1000./ std::clamp(p_time->get_b(i),0.001,10000000.);
+                double mode = p_mode->get_b(i);
+                double pw = p_pw->get_b(i);
+                double min = p_min->get_b(i);
+                double max = p_max->get_b(i);
+                double curve = p_curve->get_b(i);
+                double add = p_add->get_b(i);
+                double mul = p_mul->get_b(i);
+                
+                /** count special parameter: if > 0
+                    • freq = 1./count
+                    • deltatime = 1000.
+                */
+                double count = p_count->get_b(i);
+                if(count >= 0.)
+                {
+                    freq = (count > 0.01)? 1./count : 100. ;
+                    deltatime = 1000.;
+                }
+                
+                double r_freq = freq * exp2( m_varifreq );
+                phase += r_freq*deltatime/1000.;
+                
+                if (phase > 1.)
+                {   // reset : new freq jitter varifreq
+                    m_varifreq = mt_rand(mt_gen)*varifreq;
+                    phase = fmodf(phase,1.);
+                    
+                    // sample curve and pw param
+                    m_curve = curve;
+                    output_scale.setcurve(m_curve);
+                    m_pw = pw;
+                }
+                
+                output_scale.setout_min(min);
+                output_scale.setout_max(max);
+                
+                
+                double w = wave(phase, mode, m_pw);
+                values[i] = add+(output_scale.apply(w)*mul);
+                
+            }
+        }
+        
         double get(double deltatime) override
         {
 
@@ -363,12 +525,12 @@ namespace maxlang {
                 
                 // sample curve and pw param
                 m_curve = curve;
+                output_scale.setcurve(m_curve);
                 m_pw = pw;
             }
             
             output_scale.setout_min(min);
             output_scale.setout_max(max);
-            output_scale.setcurve(m_curve);
             
             double w = wave(phase, mode, m_pw);
             return add+(output_scale.apply(w)*mul);
@@ -431,6 +593,89 @@ namespace maxlang {
         void sync(double _phase) override
         {
             phase = _phase;
+        }
+        
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            modtor_param * p_time = params["time"].buffer_proc(numframes, deltatime);
+            modtor_param * p_varitime = params["varitime"].buffer_proc(numframes, deltatime);
+            modtor_param * p_min = params["min"].buffer_proc(numframes, deltatime);
+            modtor_param * p_max = params["max"].buffer_proc(numframes, deltatime);
+            modtor_param * p_curve = params["curve"].buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
+            modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
+            
+            modtor_param * p_freq = 0;
+            
+            bool freq_mode = params.find("freq") != params.end();
+            
+            if(freq_mode)
+                p_freq = params["freq"].buffer_proc(numframes, deltatime);
+
+            if(params.find("varifreq") != params.end())
+                p_varitime = params["varifreq"].buffer_proc(numframes, deltatime);
+            
+            for(int i=0; i<numframes; i++)
+            {
+                // get all the parameters (check time or freq format)
+                double time = p_time->get_b(i);
+                double varitime = p_time->get_b(i);
+
+                if(freq_mode)
+                    time = 1000./ std::clamp(p_freq->get_b(i),0.001,10000000.);
+                
+                double min = p_time->get_b(i);
+                double max = p_time->get_b(i);
+                double curve = p_time->get_b(i);
+                double add = p_time->get_b(i);
+                double mul = p_time->get_b(i);
+                double tmp;
+                
+                /** count special parameter: if > 0
+                    • freq = 1./count
+                    • deltatime = 1000.
+                */
+                double count = p_count->get_b(i);
+                if(count >= 0.)
+                {
+                    time = (count > 0.01)? count * 1000 : 10. ;
+                    deltatime = 1000.;
+                }
+                            
+                if (phase < 0.) // start the line
+                {
+                    // choose time
+                    m_time = time * exp2(mt_rand_time(mt_gen_time)*varitime);
+                    // sample curve param
+                    m_curve=curve;
+                    segment_scale.setin_minmax(0., m_time);
+                    segment_scale.setout_min(min);
+                    segment_scale.setout_max(max);
+                    segment_scale.setcurve(m_curve);
+                    
+                    phase = 0;
+                    m_output = min;
+                    
+
+                }
+                else if(phase <= m_time)
+                {
+                    segment_scale.setout_min(min);
+                    segment_scale.setout_max(max);
+                    
+                    phase += deltatime;
+                    //printf("phase %f\n",phase);
+                    if(max < min)
+                        m_output = std::clamp(segment_scale.apply(phase),max,min);
+                    else
+                        m_output = std::clamp(segment_scale.apply(phase),min,max);
+                    
+                }
+                
+                values[i] =  add+(m_output*mul);
+                
+            }
         }
         
         double get(double deltatime) override
@@ -569,6 +814,87 @@ namespace maxlang {
             phase = _phase;
         }
         
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
+            modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
+            modtor_param * p_walk = params["walk"].buffer_proc(numframes, deltatime);
+            modtor_param * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
+            modtor_param * p_min = params["min"].buffer_proc(numframes, deltatime);
+            modtor_param * p_max = params["max"].buffer_proc(numframes, deltatime);
+            modtor_param * p_curve = params["curve"].buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
+            modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
+            
+            modtor_param * p_time = 0;
+            
+            bool time_mode = params.find("time") != params.end();
+            
+            if(time_mode)
+                p_time = params["time"].buffer_proc(numframes, deltatime);
+
+            if(params.find("varitime") != params.end())
+                p_varifreq = params["varitime"].buffer_proc(numframes, deltatime);
+            
+            for(int i=0; i<numframes; i++)
+            {
+                // get all the parameters (check time or freq format)
+                double freq = p_freq->get_b(i);
+                double varifreq = p_varifreq->get_b(i);
+                
+                if(time_mode)
+                    freq = 1000./ std::clamp(p_time->get_b(i),0.001,10000000.);
+                
+                double walk = p_walk->get_b(i);
+                double min = p_min->get_b(i);
+                double max = p_max->get_b(i);
+                double curve = p_curve->get_b(i);
+                double segcurve = p_segcurve->get_b(i);
+                double add = p_add->get_b(i);
+                double mul = p_mul->get_b(i);
+                
+                /** count special parameter: if > 0
+                    • freq = 1./count
+                    • deltatime = 1000.
+                */
+                double count = p_count->get_b(i);
+                if(count >= 0.)
+                {
+                    freq = (count > 0.01)? 1./count : 100. ;
+                    deltatime = 1000.;
+                }
+                
+                
+                double r_freq = freq * exp2( m_varifreq );
+                phase += r_freq*deltatime/1000.;
+                
+                if (phase > 1.)
+                {   // reset : new freq jitter varifreq
+                    m_varifreq = mt_rand_time(mt_gen_time)*varifreq;
+                    phase = fmodf(phase,1.);
+                    
+                    // new random target value
+                    m_rand_prev = m_rand_target;
+                    m_rand_target = maxlang::fold(m_rand_prev + mt_rand_val(mt_gen_val) * walk * 2,-1,1);
+
+                    // sample curve param
+                    m_curve=curve;
+                    m_segcurve=segcurve;
+                    output_scale.setcurve(m_curve);
+                    segment_scale.setcurve(m_segcurve);
+                }
+                
+                output_scale.setout_min(min);
+                output_scale.setout_max(max);
+
+                double phase_c = segment_scale.apply(phase);
+                double w = (1-phase_c)*m_rand_prev + phase_c*m_rand_target;
+                values[i] = add+(output_scale.apply(w)*mul);
+                
+            }
+        }
+        
         double get(double deltatime) override
         {
             // get all the parameters (check time or freq format)
@@ -697,6 +1023,82 @@ namespace maxlang {
             phase = _phase;
         }
         
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
+            modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
+            modtor_param * p_walk = params["walk"].buffer_proc(numframes, deltatime);
+            modtor_param * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
+            modtor_param * p_min = params["min"].buffer_proc(numframes, deltatime);
+            modtor_param * p_max = params["max"].buffer_proc(numframes, deltatime);
+            modtor_param * p_curve = params["curve"].buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
+            modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
+            
+            modtor_param * p_time = 0;
+            
+            bool time_mode = params.find("time") != params.end();
+            
+            if(time_mode)
+                p_time = params["time"].buffer_proc(numframes, deltatime);
+
+            if(params.find("varitime") != params.end())
+                p_varifreq = params["varitime"].buffer_proc(numframes, deltatime);
+            
+            for(int i=0; i<numframes; i++)
+            {
+                // get all the parameters (check time or freq format)
+                double freq = p_freq->get_b(i);
+                double varifreq = p_varifreq->get_b(i);
+                
+                if(time_mode)
+                    freq = 1000./ std::clamp(p_time->get_b(i),0.001,10000000.);
+                
+                double walk = p_walk->get_b(i);
+                double min = p_min->get_b(i);
+                double max = p_max->get_b(i);
+                double curve = p_curve->get_b(i);
+                double segcurve = p_segcurve->get_b(i);
+                double add = p_add->get_b(i);
+                double mul = p_mul->get_b(i);
+                
+                /** count special parameter: if > 0
+                    • freq = 1./count
+                    • deltatime = 1000.
+                */
+                double count = p_count->get_b(i);
+                if(count >= 0.)
+                {
+                    freq = (count > 0.01)? 1./count : 100. ;
+                    deltatime = 1000.;
+                }
+                double r_freq = freq * exp2( m_varifreq );
+                phase += r_freq*deltatime/1000.;
+                
+                if (phase > 1.)
+                {   // reset : new freq jitter varifreq
+                    m_varifreq = mt_rand_time(mt_gen_time)*varifreq;
+                    phase = fmodf(phase,1.);
+                    
+                    // new random target value
+                    m_rand_prev = m_rand_target;
+                    m_rand_target = maxlang::fold(m_rand_prev + mt_rand_val(mt_gen_val) * walk * 2,-1,1);
+                    
+                    // sample curve param
+                    m_curve=curve;
+                    output_scale.setcurve(m_curve);
+                }
+                
+                output_scale.setout_min(min);
+                output_scale.setout_max(max);
+                
+                double w = m_rand_target;
+                values[i] = add+(output_scale.apply(w)*mul);
+                
+            }
+        }
+        
         double get(double deltatime) override
         {
             // get all the parameters (check time or freq format)
@@ -809,6 +1211,77 @@ namespace maxlang {
         void sync(double _phase) override
         {
             phase = _phase;
+        }
+        
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
+            modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
+            modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
+            modtor_param * p_list = &params["list"];
+            
+            modtor_param * p_time = 0;
+            
+            bool time_mode = params.find("time") != params.end();
+            
+            if(time_mode)
+                p_time = params["time"].buffer_proc(numframes, deltatime);
+
+            if(params.find("varitime") != params.end())
+                p_varifreq = params["varitime"].buffer_proc(numframes, deltatime);
+            
+            for(int i=0; i<numframes; i++)
+            {
+                // get all the parameters (check time or freq format)
+                double freq = p_freq->get_b(i);
+                double varifreq = p_varifreq->get_b(i);
+                
+                if(time_mode)
+                    freq = 1000./ std::clamp(p_time->get_b(i),0.001,10000000.);
+                
+                double mul = p_mul->get_b(i);
+                double add = p_add->get_b(i);
+                /** count special parameter: if > 0
+                    • freq = 1./count
+                    • deltatime = 1000.
+                */
+                double count = p_count->get_b(i);
+                if(count >= 0.)
+                {
+                    freq = (count > 0.01)? 1./count : 100. ;
+                    deltatime = 1000.;
+                }
+                
+                double r_freq = freq * exp2( m_varifreq );
+                phase += r_freq*deltatime/1000.;
+                
+                if (phase > 1.)
+                {   // reset : new freq jitter varifreq
+                    
+                    m_varifreq = mt_rand_time(mt_gen_time)*varifreq;
+                    phase = fmodf(phase,1.);
+                    // TODO : segfault when changing list too often ( not thread safe )
+                    m_list = p_list->getlist();
+                    m_list_l  = m_list.size();
+                    //printf("m_list_l %d\n",m_list_l);
+                    // new random index value
+                    m_rand_prev = m_rand_target;
+                    int index = floor(mt_rand_val(mt_gen_val) * (m_list_l-1));
+                    // don't choose same index
+                    if(index >= m_last_index)
+                        index ++;
+                    
+                    m_last_index = index;
+                    // get value from list
+                    m_rand_target = m_list[m_last_index];
+
+                }
+                
+                values[i] = (m_rand_target * mul)+add;
+                
+            }
         }
         
         double get(double deltatime) override
@@ -930,6 +1403,85 @@ namespace maxlang {
         void sync(double _phase) override
         {
             phase = _phase;
+        }
+        
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
+            modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
+            modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
+            modtor_param * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
+            modtor_param * p_list = &params["list"];
+            
+            modtor_param * p_time = 0;
+            
+            bool time_mode = params.find("time") != params.end();
+            
+            if(time_mode)
+                p_time = params["time"].buffer_proc(numframes, deltatime);
+
+            if(params.find("varitime") != params.end())
+                p_varifreq = params["varitime"].buffer_proc(numframes, deltatime);
+            
+            for(int i=0; i<numframes; i++)
+            {
+                // get all the parameters (check time or freq format)
+                double freq = p_freq->get_b(i);
+                double varifreq = p_varifreq->get_b(i);
+                
+                double segcurve = p_segcurve->get_b(i);
+                
+                if(time_mode)
+                    freq = 1000./ std::clamp(p_time->get_b(i),0.001,10000000.);
+                
+                double mul = p_mul->get_b(i);
+                double add = p_add->get_b(i);
+                /** count special parameter: if > 0
+                    • freq = 1./count
+                    • deltatime = 1000.
+                */
+                double count = p_count->get_b(i);
+                if(count >= 0.)
+                {
+                    freq = (count > 0.01)? 1./count : 100. ;
+                    deltatime = 1000.;
+                }
+                
+                double r_freq = freq * exp2( m_varifreq );
+                phase += r_freq*deltatime/1000.;
+                
+                if (phase > 1.)
+                {   // reset : new freq jitter varifreq
+                    
+                    m_varifreq = mt_rand_time(mt_gen_time)*varifreq;
+                    phase = fmodf(phase,1.);
+                    // TODO : segfault when changing list too often ( not thread safe )
+                    m_list = p_list->getlist();
+                    m_list_l  = m_list.size();
+                    //printf("m_list_l %d\n",m_list_l);
+                    // new random index value
+                    m_rand_prev = m_rand_target;
+                    int index = floor(mt_rand_val(mt_gen_val) * (m_list_l-1));
+                    // don't choose same index
+                    if(index >= m_last_index)
+                        index ++;
+                    
+                    m_last_index = index;
+                    // get value from list
+                    m_rand_prev = m_rand_target;
+                    m_rand_target = m_list[m_last_index];
+                    
+                    // sample segcurve value
+                    m_segcurve=segcurve;
+                    segment_scale.setcurve(m_segcurve);
+                    
+                }
+                double phase_c = segment_scale.apply(phase);
+                values[i] = add+(((1-phase_c)*m_rand_prev + phase_c*m_rand_target)*mul);
+                
+            }
         }
         
         double get(double deltatime) override
@@ -1056,6 +1608,127 @@ namespace maxlang {
         void sync(double _phase) override
         {
             phase = _phase;
+        }
+        
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
+            modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
+            modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
+            modtor_param * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
+            modtor_param * p_play = params["play"].buffer_proc(numframes, deltatime);
+            modtor_param * p_loop = params["loop"].buffer_proc(numframes, deltatime);
+            modtor_param * p_list = &params["list"];
+            
+            modtor_param * p_time = 0;
+            
+            m_list = p_list->getlist();
+            m_list_l  = m_list.size();
+            if(m_list_l == 0 )
+                return;
+            
+            bool time_mode = params.find("time") != params.end();
+            
+            if(time_mode)
+                p_time = params["time"].buffer_proc(numframes, deltatime);
+
+            if(params.find("varitime") != params.end())
+                p_varifreq = params["varitime"].buffer_proc(numframes, deltatime);
+            
+            for(int i=0; i<numframes; i++)
+            {
+                // get all the parameters (check time or freq format)
+                double freq = p_freq->get_b(i);
+                double varifreq = p_varifreq->get_b(i);
+                
+                double segcurve = p_segcurve->get_b(i);
+                
+                if(time_mode)
+                    freq = 1000./ std::clamp(p_time->get_b(i),0.001,10000000.);
+                
+                double mul = p_mul->get_b(i);
+                double add = p_add->get_b(i);
+                /** count special parameter: if > 0
+                    • freq = 1./count
+                    • deltatime = 1000.
+                */
+                
+                int play = p_play->get_b(i)>0;
+                int loop = p_loop->get_b(i)>0;
+                
+                double count = p_count->get_b(i);
+                if(count >= 0.)
+                {
+                    freq = (count > 0.01)? 1./count : 100. ;
+                    deltatime = 1000.;
+                }
+                
+                if(!m_playing && play) // restart the sequence
+                {
+                    m_playing = play;
+                    m_looping = 1;
+                    m_last_index = 0;
+                    m_val_prev = m_list[m_last_index];
+                    m_val_target = m_list[(m_last_index+1)%m_list_l];
+                    phase = 0;
+                    
+                    values[i] =  add+m_val_prev*mul;
+                    
+                }
+                else
+                {
+                    if(!play)
+                    {
+                        m_playing=play;
+                        m_looping=0;
+                    }
+                    
+                    if(m_playing && m_looping)
+                    {
+                        double r_freq = freq * exp2( m_varifreq );
+                        phase += r_freq*deltatime/1000.;
+                    
+                    
+                        if (phase > 1.)
+                        {   // reset : new freq jitter varifreq
+
+                            
+                            m_varifreq = mt_rand_time(mt_gen_time)*varifreq;
+                            phase = fmodf(phase,1.);
+                            
+                            
+                            
+                            
+                            if(!loop && m_last_index+2 == m_list_l ) // stops at end of sequence if loop is off
+                            {
+                                m_last_index = m_last_index+1;
+                                m_val_prev = m_list[m_last_index];
+                                m_val_target = m_val_prev;
+                                
+                                m_looping = 0;
+                                
+                            }else
+                            {
+                                m_last_index = (m_last_index+1)%m_list_l;
+                                m_val_prev = m_val_target;
+                                m_val_target = m_list[m_last_index];
+                            }
+                            
+                            // sample segcurve value
+                            m_segcurve=segcurve;
+                            segment_scale.setcurve(m_segcurve);
+                            
+                        }
+                    }
+                    
+                    double phase_c = segment_scale.apply(std::clamp(phase,0.,1.));
+                    values[i] =  add+(((1-phase_c)*m_val_prev + phase_c*m_val_target)*mul);
+                        
+                    }
+                
+            }
         }
         
         double get(double deltatime) override
@@ -1208,6 +1881,119 @@ namespace maxlang {
         void sync(double _phase) override
         {
             phase = _phase;
+        }
+        
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
+            modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
+            modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
+            modtor_param * p_play = params["play"].buffer_proc(numframes, deltatime);
+            modtor_param * p_loop = params["loop"].buffer_proc(numframes, deltatime);
+            modtor_param * p_list = &params["list"];
+            
+            modtor_param * p_time = 0;
+            
+            bool time_mode = params.find("time") != params.end();
+            
+            if(time_mode)
+                p_time = params["time"].buffer_proc(numframes, deltatime);
+
+            if(params.find("varitime") != params.end())
+                p_varifreq = params["varitime"].buffer_proc(numframes, deltatime);
+            
+            for(int i=0; i<numframes; i++)
+            {
+                // get all the parameters (check time or freq format)
+                double freq = p_freq->get_b(i);
+                double varifreq = p_varifreq->get_b(i);
+                
+                
+                if(time_mode)
+                    freq = 1000./ std::clamp(p_time->get_b(i),0.001,10000000.);
+                
+                double mul = p_mul->get_b(i);
+                double add = p_add->get_b(i);
+                /** count special parameter: if > 0
+                    • freq = 1./count
+                    • deltatime = 1000.
+                */
+                
+                int play = p_play->get_b(i)>0;
+                int loop = p_loop->get_b(i)>0;
+                
+                double count = p_count->get_b(i);
+                if(count >= 0.)
+                {
+                    freq = (count > 0.01)? 1./count : 100. ;
+                    deltatime = 1000.;
+                }
+                
+                m_list = p_list->getlist();
+                m_list_l  = m_list.size();
+                if(m_list_l == 0 )
+                    return 0.;
+                
+                if(!m_playing && play) // restart the sequence
+                {
+                    m_playing = play;
+                    m_looping = 1;
+                    m_last_index = 0;
+                    m_val = m_list[m_last_index];
+                    phase = 0;
+                    
+                    values[i] = add+(m_val*mul);
+                    
+                }
+                else
+                    
+                {
+                    if(!play)
+                    {
+                        m_playing=play;
+                        m_looping=0;
+                    }
+                    
+                    if(m_playing && m_looping)
+                    {
+                        double r_freq = freq * exp2( m_varifreq );
+                        phase += r_freq*deltatime/1000.;
+                        
+                        
+                        if (phase >= 1.)
+                        {   // reset : new freq jitter varifreq
+                            
+                            
+                            m_varifreq = mt_rand_time(mt_gen_time)*varifreq;
+                            phase = fmodf(phase,1.);
+                            
+                            
+                            
+                            
+                            if(!loop && m_last_index+2 == m_list_l ) // stops at end of sequence if loop is off
+                            {
+                                m_last_index = m_last_index+1;
+                                m_val = m_list[m_last_index];
+                                
+                                m_looping = 0;
+                                
+                            }else
+                            {
+                                m_last_index = (m_last_index+1)%m_list_l;
+                                m_val = m_list[m_last_index];
+                            }
+                            
+                            
+                        }
+                    }
+                    
+                    values[i] = add+(m_val*mul);
+                        
+                }
+                
+            }
         }
         
         double get(double deltatime) override
@@ -1369,6 +2155,8 @@ namespace maxlang {
         void sync(double _phase) override
         {
             phase = _phase;
+            for (auto &p : params)
+                p.second.sync(phase);
         }
         
         int parse_segments(std::vector<double> list)
@@ -1409,6 +2197,137 @@ namespace maxlang {
                 return np;
             }
             return 0; // ERROR wrong size of arguments
+        }
+        
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            modtor_param * p_time = params["time"].buffer_proc(numframes, deltatime);
+            modtor_param * p_varitime = params["varitime"].buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
+            modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
+            modtor_param * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
+            modtor_param * p_play = params["play"].buffer_proc(numframes, deltatime);
+            modtor_param * p_loop = params["loop"].buffer_proc(numframes, deltatime);
+            modtor_param * p_list_ = &params["list"];
+            
+            modtor_param * p_freq = 0;
+            
+            p_list = p_list_->getlist();
+            
+            bool freq_mode = params.find("freq") != params.end();
+            
+            if(freq_mode)
+                p_freq = params["freq"].buffer_proc(numframes, deltatime);
+
+            if(params.find("varifreq") != params.end())
+                p_varitime = params["varifreq"].buffer_proc(numframes, deltatime);
+            
+            for(int i=0; i<numframes; i++)
+            {
+                // get all the parameters (check time or freq format)
+                double time = p_time->get_b(i);
+                double varitime = p_varitime->get_b(i);
+                
+                double segcurve = p_segcurve->get_b(i);
+                
+                if(freq_mode)
+                    time = 1000./ std::clamp(p_freq->get_b(i),0.001,10000000.);
+                
+                
+                double mul = p_mul->get_b(i);
+                double add = p_add->get_b(i);
+                /** count special parameter: if > 0
+                    • freq = 1./count
+                    • deltatime = 1000.
+                */
+                
+                int play = p_play->get_b(i)>0;
+                int loop = p_loop->get_b(i)>0;
+                
+                double count = p_count->get_b(i);
+                if(count >= 0.)
+                {
+                    time = (count > 0.01)? count * 1000 : 10. ;
+                    deltatime = 1000.;
+                }
+                
+                
+                if(m_list != p_list)
+                {
+                    m_list = p_list;
+                    m_seg_l = parse_segments(m_list);
+                }
+                
+                if(!m_seg_l)
+                    return 0.;
+                
+                if(!m_playing && play) // restart the sequence
+                {
+                    m_playing = play;
+                    m_looping = 1;
+                    m_seg_index = 0;
+
+                    phase = 0;
+                    
+                    // choose new length for env
+                    m_varitime = mt_rand_time(mt_gen_time)*varitime;
+                    m_time = time * exp2( m_varitime );
+                    
+                }
+                
+                if(!play)
+                {
+                    m_playing=play;
+                    m_looping=0;
+                }
+                
+                if(m_playing && m_looping)
+                {
+                    
+                    int seg_index = 0;
+                    while(phase > m_segments[seg_index].offset_f)
+                    {
+                        seg_index++;
+                    }
+                    
+                    if(seg_index!= m_seg_index)
+                    {
+                        m_seg_index = seg_index;
+                        segment_scale.setcurve(m_segcurve = segcurve);
+                    }
+                    
+                    segment_scale.setin_minmax(m_segments[m_seg_index].onset_f, m_segments[m_seg_index].offset_f);
+                    
+                    segment_scale.setout_min(m_segments[m_seg_index].min);
+                    segment_scale.setout_max(m_segments[m_seg_index].max);
+                    
+                    m_val = segment_scale.apply(std::clamp(phase,0.,1.));
+                    
+                    phase += deltatime / m_time;
+                    
+                    if (phase > 1.)
+                    {   // reset env : new freq jitter varifreq
+                        if(loop)
+                        {
+                            m_varitime = mt_rand_time(mt_gen_time)*varitime;
+                        
+                            phase = fmodf(phase,1.);
+                            m_time = time * exp2( m_varitime );
+                            m_looping=1;
+                        
+                        }else
+                        {
+                            m_looping = 0;
+                            m_val = m_end_val;
+                        }
+                        
+                    }
+                }
+                
+                values[i] = add+(m_val*mul);
+                
+            }
         }
         
         double get(double deltatime) override
@@ -1472,18 +2391,20 @@ namespace maxlang {
             if(m_playing && m_looping)
             {
                 
-                m_seg_index = 0;
-                while(phase > m_segments[m_seg_index].offset_f)
-                    m_seg_index++;
+                int seg_index = 0;
+                while(phase > m_segments[seg_index].offset_f)
+                {
+                    seg_index++;
+                }
                 
-                segment_scale.setin_minmax(m_segments[m_seg_index].onset_f, m_segments[m_seg_index].offset_f);
-                
-                segment_scale.setout_min(m_segments[m_seg_index].min);
-                segment_scale.setout_max(m_segments[m_seg_index].max);
-                
-               if(m_segcurve != segcurve)
+                if(seg_index!= m_seg_index)
+                {
+                    m_seg_index = seg_index;
+                    segment_scale.setin_minmax(m_segments[m_seg_index].onset_f, m_segments[m_seg_index].offset_f);
+                    segment_scale.setout_min(m_segments[m_seg_index].min);
+                    segment_scale.setout_max(m_segments[m_seg_index].max);
                     segment_scale.setcurve(m_segcurve = segcurve);
-                
+                }
                 
                 m_val = segment_scale.apply(std::clamp(phase,0.,1.));
                 
@@ -1553,6 +2474,8 @@ namespace maxlang {
         
         void sync(double _phase) override
         {
+            for (auto &p : params)
+                p.second.sync(_phase);
         }
         
         /**
@@ -1660,6 +2583,60 @@ namespace maxlang {
            
         }
         
+        
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            modtor_param * p_in = params["in"].buffer_proc(numframes, deltatime);
+            modtor_param * p_depth = params["depth"].buffer_proc(numframes, deltatime);
+            modtor_param * p_mod = params["mod"].buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
+            modtor_param * p_list_ = &params["list"];
+
+            modtor_param * p_time = 0;
+            
+            // mod is sampled every buffer
+            double mod = std::max(p_mod->get_b(0),0.);
+            
+            p_list = p_list_->getlist();
+            
+            if(m_list != p_list)
+            {
+                m_list = p_list;
+                sort(m_list.begin(),m_list.end());
+                m_list_mod = m_list;
+                
+                std::for_each(m_list_mod.begin(), m_list_mod.end(),[&mod](double &d){ d = modulo(d,mod);});
+                sort(m_list_mod.begin(),m_list_mod.end());
+
+            }
+            
+            for(int i=0; i<numframes; i++)
+            {
+                // get all the parameters
+                double in = p_in->get_b(i);
+                
+                double depth = std::clamp(p_depth->get_b(i),0.,1.);
+
+                double mul = p_mul->get_b(i);
+                double add = p_add->get_b(i);
+                
+                
+                if(!m_list.size())
+                    values[i] = m_val = add+(in*mul);
+                else
+                {
+                    if(mod == 0.)
+                        m_val = getnearest(in,depth);
+                    else
+                        m_val = getnearestmod(in,depth,mod);
+
+                    values[i] = add+(m_val*mul);
+                }
+                
+            }
+        }
+        
         double get(double deltatime) override
         {
             // get all the parameters
@@ -1740,7 +2717,14 @@ namespace maxlang {
         
         void sync(double _phase) override
         {
+        	for (auto &p : params)
+                p.second.sync(_phase);
+        }
+        
+        void perform(double * values,int numframes,double deltatime) override
+        {
             
+            // TODO
         }
         
         double get(double deltatime) override
@@ -1805,6 +2789,17 @@ namespace maxlang {
         {
         }
         
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
+            modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
+
+            
+            for(int i=0; i<numframes; i++)
+                values[i] = p_a->get_b(i) + p_b->get_b(i);
+    
+        }
+        
         double get(double deltatime) override
         {
             // get all the parameters
@@ -1836,6 +2831,17 @@ namespace maxlang {
         
         void sync(double _phase) override
         {
+        }
+        
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
+            modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
+
+            
+            for(int i=0; i<numframes; i++)
+                values[i] = p_a->get_b(i) - p_b->get_b(i);
+    
         }
         
         double get(double deltatime) override
@@ -1871,6 +2877,17 @@ namespace maxlang {
         {
         }
         
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
+            modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
+
+            
+            for(int i=0; i<numframes; i++)
+                values[i] = p_a->get_b(i) * p_b->get_b(i);
+    
+        }
+        
         double get(double deltatime) override
         {
             // get all the parameters
@@ -1902,6 +2919,17 @@ namespace maxlang {
         
         void sync(double _phase) override
         {
+        }
+        
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
+            modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
+
+            
+            for(int i=0; i<numframes; i++)
+                values[i] = p_a->get_b(i) / p_b->get_b(i);
+    
         }
         
         double get(double deltatime) override
@@ -1950,6 +2978,41 @@ namespace maxlang {
         
         void sync(double _phase) override
         {
+        }
+        
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
+            modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
+            modtor_param * p_fade = params["fade"].buffer_proc(numframes, deltatime);
+            modtor_param * p_fadecurve = params["fadecurve"].buffer_proc(numframes, deltatime);
+            
+            // sample curve
+            double fadecurve = std::clamp(p_fadecurve->get_b(0),-1.04,1.04);
+            // fadecurve = 0 : linear
+            // fadecurve = 1 : tight (square)
+            segment_scale.setcurve(fadecurve);
+            
+            for(int i=0; i<numframes; i++)
+            {
+                // get all the parameters
+                double in1 = p_a->get_b(i);
+                double in2 = p_b->get_b(i);
+                double mul = p_mul->get_b(i);
+                double add = p_add->get_b(i);
+                double fade = std::clamp(p_fade->get_b(i),0.,1.);
+                
+                //m_fade1 = std::clamp((((1-fade)-0.5)*(1./(1.-fadecurve)))+0.5,0.,1.);
+                m_fade2 = segment_scale.apply(fade);
+                m_fade1 = 1.- m_fade2;
+                    
+                m_val = (m_fade1 * in1) + (m_fade2 * in2);
+                
+                return add+(m_val*mul);
+            }
+    
         }
         
         double get(double deltatime) override

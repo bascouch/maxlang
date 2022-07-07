@@ -20,6 +20,29 @@
 namespace maxlang
 {
 
+    namespace fmath
+    {
+        // 4.2 times as fast as normal pow
+        inline double fastpow(double a, double b) {
+          union {
+            double d;
+            int x[2];
+          } u = { a };
+          u.x[1] = (int)(b * (u.x[1] - 1072632447) + 1072632447);
+          u.x[0] = 0;
+          return u.d;
+        }
+    
+        inline
+        double fastexp(double x) {
+          x = 1.0 + x / 1024;
+          x *= x; x *= x; x *= x; x *= x;
+          x *= x; x *= x; x *= x; x *= x;
+          x *= x; x *= x;
+          return x;
+        }
+    }
+
     const std::string CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         
     std::string generateUUID(){
@@ -109,6 +132,7 @@ namespace maxlang
         }
         
         double curve=0;
+        int curve_sign = 1;
         double in_min=0, in_max=1, out_min=0., out_max=1.;
         // curve magical coeff
         double c1 = 1e-20, c2 = 1.2, c3 = .41, c4 = .91;
@@ -119,6 +143,7 @@ namespace maxlang
         {
             // scaled between 0 & 1
             double scaled_in = (f-in_min)/dx;
+            dy = (out_max - out_min) * curve_sign;
             return (bb * (pow(mm,scaled_in)-1))*dy + out_min;
         }
         
@@ -127,14 +152,16 @@ namespace maxlang
             curve = std::clamp(c,-1.04,1.04);
             double hh, ff, eff, gh;
             
-            dy = out_max - out_min;
-            
             if(curve<0)
             {
                 hh = pow(((c1 - curve ) * c2), c3) * c4;
-                dy*=-1;
+                curve_sign=-1;
             }else
+            {
                 hh = pow(((curve + c1) * c2), c3) * c4;
+                curve_sign=1;
+            }
+            
             
             ff = hh / (1 - hh);
             eff = exp(ff) - 1;
@@ -160,17 +187,12 @@ namespace maxlang
         void setout_min(double _out_min)
         {
             out_min  = _out_min;
-            dy = out_max - out_min;
-            if(curve<0)
-                dy *=-1;
         }
         
         void setout_max(double _out_max)
         {
             out_max  = _out_max;
-            dy = out_max - out_min;
-            if(curve<0)
-                dy *=-1;
+
         }
         
         void setinout_minmax(double _in_min, double _in_max,double _out_min,double _out_max)
@@ -180,9 +202,7 @@ namespace maxlang
             dx = in_max - in_min;
             out_min  = _out_min;
             out_max  = _out_max;
-            dy = out_max - out_min;
-            if(curve<0)
-                dy *=-1;
+
         }
         
         

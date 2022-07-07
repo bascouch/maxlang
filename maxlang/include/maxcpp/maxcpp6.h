@@ -59,6 +59,14 @@ THE SOFTWARE.
 						#METHOD,										\
 						0);
 
+// for A_CANT methods (multichanneloutputs):
+#define REGISTER_METHOD_CANT_CHANS(CLASS, METHOD) class_addmethod(    \
+                        (t_class *)CLASS::m_class,                            \
+                        (method)CLASS::MaxMethodCantChans<&CLASS::METHOD>::call, \
+                        #METHOD,        \
+                        A_CANT,            \
+                        0);
+
 // for A_CANT methods (dblclick):
 #define REGISTER_METHOD_CANT(CLASS, METHOD) class_addmethod(	\
 						(t_class *)CLASS::m_class,							\
@@ -211,6 +219,13 @@ public:
 		static void call(T * x) { ((x)->*F)(proxy_getinlet((t_object *)x)); }
 	};
 
+    //A_CANT for multichanneloutputs
+    typedef long (T::*maxmethodcantchans)(long inlet);
+    template<maxmethodcantchans F>
+    struct MaxMethodCantChans {
+        static long call(T * x) { return ((x)->*F)(proxy_getinlet((t_object *)x)); }
+    };
+    
 	//A_CANT for dblclick
 	typedef void (T::*maxmethodcant)(long inlet);
 	template<maxmethodcant F>
