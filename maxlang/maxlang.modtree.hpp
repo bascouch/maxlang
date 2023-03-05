@@ -1558,6 +1558,7 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("segcurve",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("segcurveshape",modtor_param(0)));
             params.insert(std::pair<std::string, modtor_param>("play",modtor_param(1)));
             params.insert(std::pair<std::string, modtor_param>("loop",modtor_param(1)));
             params.insert(std::pair<std::string, modtor_param>("count",modtor_param(-1.)));
@@ -1618,6 +1619,7 @@ namespace maxlang {
             modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
             modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
             modtor_param * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
+            modtor_param * p_segcurve_s = params["segcurveshape"].buffer_proc(numframes, deltatime);
             modtor_param * p_play = params["play"].buffer_proc(numframes, deltatime);
             modtor_param * p_loop = params["loop"].buffer_proc(numframes, deltatime);
             modtor_param * p_list = &params["list"];
@@ -1644,6 +1646,7 @@ namespace maxlang {
                 double varifreq = p_varifreq->get_b(i);
                 
                 double segcurve = p_segcurve->get_b(i);
+                bool segcurve_s = p_segcurve_s->get_b(i);
                 
                 if(time_mode)
                     freq = 1000./ std::clamp(p_time->get_b(i),0.001,10000000.);
@@ -1719,6 +1722,7 @@ namespace maxlang {
                             // sample segcurve value
                             m_segcurve=segcurve;
                             segment_scale.setcurve(m_segcurve);
+                            segment_scale.setcurve_s(segcurve_s);
                             
                         }
                     }
@@ -1745,6 +1749,7 @@ namespace maxlang {
             double mul = params["mul"].get(deltatime);
             double add = params["add"].get(deltatime);
             double segcurve = params["segcurve"].get(deltatime);
+            bool segcurve_s = params["segcurveshape"].get(deltatime)>0;
             int play = params["play"].get(deltatime)>0;
             int loop = params["loop"].get(deltatime)>0;
             /** count special parameter: if > 0
@@ -1816,6 +1821,7 @@ namespace maxlang {
                     // sample segcurve value
                     m_segcurve=segcurve;
                     segment_scale.setcurve(m_segcurve);
+                    segment_scale.setcurve_s(segcurve_s);
                     
                 }
             }
@@ -2688,6 +2694,8 @@ namespace maxlang {
             params.insert(std::pair<std::string, modtor_param>("in",modtor_param("input")));
             params.insert(std::pair<std::string, modtor_param>("min",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
             
             output_scale.setin_minmax(0., 1.);
