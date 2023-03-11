@@ -40,6 +40,7 @@ public:
         
         // fill modtor vector with null pointers
         modtor_vector.resize(n_chans, 0);
+        modtor_vector_destination.resize(n_chans, 0);
         modtor_sources.resize(n_chans);
         modtor_sources_param.resize(n_chans);
         
@@ -56,6 +57,7 @@ public:
 	}
 	~maxlang_modulator() {
         modtor_vector.clear();
+        modtor_vector_destination.clear();
         delete outlist;
 
     }
@@ -377,6 +379,94 @@ public:
         
     }
     
+    void merge(long inlet, t_symbol * s, long ac, t_atom * av) {
+        std::string name;
+        std::string atoms;
+        
+        for(int i=0; i<ac; i++)
+            switch(av[i].a_type)
+            {
+                case A_SYM:
+                    atoms += (av[i].a_w.w_sym->s_name);
+                    atoms += " ";
+                    break;
+                case A_LONG:
+                    atoms += std::to_string(av[i].a_w.w_long);
+                    atoms += " ";
+                    break;
+                case A_FLOAT:
+                    atoms += std::to_string(av[i].a_w.w_float);
+                    atoms += " ";
+                    break;
+            }
+        if(m_verbose)
+            object_post(&m_ob, "merge: parsing %s",atoms.c_str());
+        
+        // macro replace
+        
+        try {
+            if(!maxlang::macro_parse_and_apply(atoms, n_chans, modtor_sources, &m_ob))
+            {
+                object_error(&m_ob, "macro parse and apply error in %s",atoms.c_str());
+                return;
+            }
+                
+        }
+        catch( const std::exception& e ) {
+            object_error(&m_ob, "macro error %s in %s",e.what(),atoms.c_str());
+            return;
+            }
+        
+        // parse * n_chans
+        try {
+            for(int i=0; i< n_chans; i++)
+            {
+                pegtl::string_input input( modtor_sources[i], std::string("input"));
+            
+                if( const auto root = pegtl::parse_tree::parse< maxlang::modtor_start, maxlang::store >(input) ) {
+                    if(m_verbose)
+                        maxlang::print_node( *root );
+                    systhread_mutex_lock(mutx);
+
+                    int ret = maxlang::modtree_make(*root, modtor_vector_destination[i], &m_ob, lastval[i]);
+                    systhread_mutex_unlock(mutx);
+                    
+                    if(!ret)
+                    {
+                        object_error(&m_ob, "error making modtree : %s",atoms.c_str());
+                        return;
+                    }
+                    else
+                    {
+                        // ALL GOOD
+                        // merge with current graph
+                        modtor_vector[i] = merge_modtor(modtor_vector[i],modtor_vector_destination[i]);
+                        // &É"'(§È!ÇÀÀÇ!È§('"É&&É"'(§È!
+                        
+                        //
+                        named_modtor_ref_vector[i].clear();
+                        modtor_vector[i]->traverse_for_ref(named_modtor_ref_vector[i]);
+                    }
+                }
+                else {
+                    object_error(&m_ob, "error parsing %s",atoms.c_str());
+                    return;
+                }
+                
+                atom_setlong(outstring,i);
+                atom_setsym(outstring+1,gensym(modtor_sources[i].c_str()));
+                outlet_list(m_outlets[2], 0L, 2,outstring);
+                
+                
+            }
+    }
+    catch( const std::exception& e ) {
+        object_error(&m_ob, "parse error %s in %s",e.what(),atoms.c_str());
+        return;
+        }
+        
+    }
+    
     void parse_parameter( long ac, t_atom * av, std::vector<maxlang::modtor*> &modtor_ref, std::string arg_name) {
         std::string name;
         std::string atoms;
@@ -447,6 +537,8 @@ public:
         }
         
     }
+    
+    
     
     maxlang::modtor * dictionary_parse(t_dictionary *d)
     {
@@ -679,6 +771,12 @@ public:
     t_systhread_mutex mutx;
     
     
+    std::vector<maxlang::modtor *> modtor_vector_destination;
+    double interpolate_coeff = 0;
+    
+    
+    
+    
     // internal clock // disabled
     void *m_clock;
     double m_interval;
@@ -694,6 +792,7 @@ C74_EXPORT int main(void) {
 	REGISTER_METHOD_GIMME(maxlang_modulator, test);
     REGISTER_METHOD_GIMME(maxlang_modulator, verbose);
     REGISTER_METHOD_GIMME(maxlang_modulator, parse);
+    REGISTER_METHOD_GIMME(maxlang_modulator, merge);
     REGISTER_METHOD_GIMME(maxlang_modulator, parameter);
     REGISTER_METHOD_GIMME(maxlang_modulator, sync);
     REGISTER_METHOD_GIMME(maxlang_modulator, dictionary);

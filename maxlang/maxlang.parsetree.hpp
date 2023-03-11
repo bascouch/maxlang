@@ -9,6 +9,8 @@
 #define maxlang_parsetree_h
 
 namespace maxlang {
+
+    modtor * merge_modtor( modtor *&modtor_A, modtor *&modtor_B);
     
     int modtree_parse_modtor_params(const pegtl::parse_tree::node& n, modtor *&_modtor, t_object * m_ob);
     int modtree_parse_modtor_operator_expression(const pegtl::parse_tree::node& n, modtor *&_modtor, t_object * m_ob, double from_value);
@@ -361,6 +363,43 @@ namespace maxlang {
             return modtree_parse_modtor_param_value(*value_node,modtor,arg_name,value,m_ob);
         }
         return 1;
+    }
+
+
+    
+
+// merge modtor params
+    modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&paramB)
+    {
+        maxlang::modtor * returned_modtor = NULL;
+        //enum modtor_param_type { e_int, e_double, e_list, e_modtor, e_string };
+        if(paramA->_type==paramB->_type && paramA->_type == e_modtor)
+        {
+            maxlang::modtor * _modtor;
+            maxlang::modtor * _modtorA = paramA->getmodtor();
+            maxlang::modtor * _modtorB = paramB->getmodtor();
+            _modtor = maxlang::merge_modtor(_modtorA, _modtorB);
+            return returned_modtor;
+        }
+        else
+        {
+            modtor_create_fromstring("interpolate",returned_modtor,0.);
+            returned_modtor->setparam("a", paramA);
+            returned_modtor->setparam("b", paramB);
+            
+            return returned_modtor;
+        }
+        
+        
+    }
+
+
+    // merge modtor
+    modtor * merge_modtor( modtor *&modtor_A, modtor *&modtor_B)
+    {
+        maxlang::modtor * returned_modtor = NULL;
+        modtor_A->merge_modtor(modtor_B,returned_modtor);
+        return returned_modtor;
     }
     
     

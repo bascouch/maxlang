@@ -15,11 +15,37 @@
 #include <algorithm>
 
 namespace maxlang {
+
+    
     
     enum modtor_param_type { e_int, e_double, e_list, e_modtor, e_string };
     
     class modtor;
     
+    enum modtor_type_enum{
+        unknown,
+        lfo,
+        line,
+        rand,
+        randi,
+        choice,
+        choicei,
+        seq,
+        seqi,
+        env,
+        quantize,
+        input,
+        add,
+        minus,
+        mul,
+        div,
+        xfade,
+        variable,
+        interpolate
+    };
+
+    modtor_type_enum modtor_create_fromstring(std::string s, modtor *&m, double from);
+
     class modtor_param
     {
         public :
@@ -56,13 +82,33 @@ namespace maxlang {
         
         
     };
+
     
+maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&paramB);
+
     
     class modtor {
         
     public :
+        
+        std::map<std::string, modtor_param> params;
+        
+        static std::map<std::string,double> variables ;
+        std::string var_ref_internal;
+        std::random_device rd_dev;
+        std::seed_seq rd_seed;
+        std::string modtor_refname;
+        std::string modtor_classname;
+        
+        
+        
+        
         modtor()
-        {}
+        {
+            modtor_classname = typeid(this).name();
+            std::cout << typeid(this).name();
+        }
+        
         virtual ~modtor()
         {}
         
@@ -81,6 +127,23 @@ namespace maxlang {
                 modtor_refname = value->getstring();
                 params[name] = *value;
                 return 1;
+            }
+            if(name=="id")
+            {
+                var_ref_internal = value->getstring();
+                if ( auto ret = variables.find(var_ref_internal); ret != variables.end() )
+                {
+                    // found
+                    std::cout << "Found " << ret->first << " " << ret->second << '\n';
+                    var_ref_internal = ret->first;
+             
+                    return 1;
+                } else {
+                    // not found
+                    
+                 variables.insert(std::pair<std::string,double>(ret->first, value->_value_d));
+                    return 1;
+                }
             }
             // common seed param
             if(name=="seed")
@@ -109,6 +172,8 @@ namespace maxlang {
             return 1;
         }
         
+        
+        
         modtor* get_param_modtor(std::string name)
         {
             if ( params.find(name) == params.end() )
@@ -120,6 +185,79 @@ namespace maxlang {
             }
         }
         
+        
+        
+        // ?? v
+        int setvariable_recurse(std::string id, double val);
+        
+        int getvariable(std::string)
+        {
+            
+        }
+        
+        modtor * merge_modtor(maxlang::modtor *modtor_B,maxlang::modtor *&modtor_returned)
+        {
+            maxlang::modtor * returned_modtor = NULL;
+            // check modtor A B equality by classname
+            if(this->modtor_classname == modtor_B->modtor_classname)
+            {
+                // recheck for type equality of each params
+                // insert xfade or interpolate for each equal paramtype
+                // modtor_param_type { e_int, e_double, e_list, e_modtor, e_string };
+                // retreive all params from B
+                std::vector<std::string> keysB;
+                for (std::map<std::string, modtor_param>::iterator it=params.begin(); it!=params.end(); ++it)
+                {
+                    keysB.push_back(it->first);
+                }
+                
+                for(std::string k : keysB)
+                {
+                    maxlang::modtor * tmp_modtor = NULL;
+                    modtor_param * paramA = &params[k];
+                    modtor_param * paramB = &modtor_B->params[k];
+                    
+                    tmp_modtor = merge_modtor_param(paramA,paramB);
+                    
+                    //params[k].;
+                    
+                    
+                }
+                
+                //returned_modtor
+                
+                return returned_modtor;
+ 
+            }
+            else
+            {
+                // insert interpolate and return
+                maxlang::modtor_param * returned_modtor_param = NULL;
+                maxlang::modtor * _modtor;
+                maxlang::modtor_param * paramA = new modtor_param(this);
+                maxlang::modtor_param * paramB = new modtor_param(modtor_B);
+                maxlang::modtor_create_fromstring("interpolate",_modtor,0.);
+                _modtor->setparam("a", paramA);
+                _modtor->setparam("b", paramB);
+                return _modtor;
+                
+                
+                /*
+                // create operator modtor
+                modtor_type_enum modtor_type_e = modtor_create_fromstring(op_str,_modtor,0.);
+                
+                // parse the operator arguments and make modtor_param
+                maxlang::modtor_param * value_a, *value_b;
+                auto ret_a = modtree_parse_modtor_operator_argument(*arg_a_node,_modtor,"a",value_a,m_ob);
+                auto ret_b = modtree_parse_modtor_operator_argument(*arg_b_node,_modtor,"b",value_b,m_ob);
+                */
+            }
+            
+            
+            
+            return nullptr; // ;)
+        }
+
         int traverse_for_ref(std::map<std::string,maxlang::modtor*> &name_ref)
         {
             for (std::map<std::string, modtor_param>::iterator it=params.begin(); it!=params.end(); ++it)
@@ -143,10 +281,7 @@ namespace maxlang {
             return 1; // ;)
         }
         
-        std::map<std::string, modtor_param> params;
-        std::random_device rd_dev;
-        std::seed_seq rd_seed;
-        std::string modtor_refname;
+
 
     private:
         
@@ -2774,6 +2909,86 @@ namespace maxlang {
         }
     };
     
+    class m_variable : public modtor {
+        
+    public:
+    
+        m_variable(double from)
+    {
+        params.insert(std::pair<std::string, modtor_param>("name",modtor_param("name")));
+        params.insert(std::pair<std::string, modtor_param>("id",modtor_param("var0")));
+        params.insert(std::pair<std::string, modtor_param>("init",modtor_param(0)));
+        params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
+        params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
+        params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
+        
+        output_scale.setin_minmax(0., 1.);
+        /*if ( (variables.find("id")) == params.end() )
+        { // not found
+         variables.insert(std::pair<std::string,double>(param_value, this));
+            variables[
+            return 0;
+        } else {
+            // found
+            ret_param->
+            if(
+            params.erase(name); // TEST bug
+            params[name] = *value;
+            //std::cout << value._type << std::endl;
+        }
+        //m_dict = dictobj_findregistered_retain (gensym("maxlang.variable-internal.dict"));
+        */
+        m_val_sym = gensym("value");
+        m_min_sym = gensym("min");
+        m_max_sym = gensym("max");
+        
+    };
+    
+    ~m_variable()
+    {
+        params.clear();
+    }
+    
+    double m_variable_val = 0;
+    scale_curve output_scale;
+    t_symbol * m_val_sym, * m_min_sym, * m_max_sym;
+    
+    void seed(std::string seed_str) override
+    {
+
+    }
+    
+    void sync(double _phase) override
+    {
+        for (auto &p : params)
+            p.second.sync(_phase);
+    }
+    
+    void perform(double * values,int numframes,double deltatime) override
+    {
+        
+        // TODO
+    }
+    
+    double get(double deltatime) override
+    {
+        // get all the parameters
+        std::string varname = params["id"].getstring();
+        double val = this->getvariable(varname);
+        
+        
+        m_variable_val = val ;
+        
+
+        double add = params["add"].get(deltatime);
+        double mul = params["mul"].get(deltatime);
+        
+        return add+(m_variable_val*mul);
+    }
+};
+
+
+
     class m_add : public modtor {
         
     public:
@@ -3047,27 +3262,114 @@ namespace maxlang {
             return add+(m_val*mul);
         }
     };
-    
-    
-    enum modtor_type_enum{
-        unknown,
-        lfo,
-        line,
-        rand,
-        randi,
-        choice,
-        choicei,
-        seq,
-        seqi,
-        env,
-        quantize,
-        input,
-        add,
-        minus,
-        mul,
-        div,
-        xfade
+
+    class m_interpolate : public modtor {
+        
+    public:
+        
+        m_interpolate(double from)
+        {
+
+            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(from)));
+            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(1)));
+            params.insert(std::pair<std::string, modtor_param>("id",modtor_param("interpolate")));
+            params.insert(std::pair<std::string, modtor_param>("fadecurve",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
+            
+            // create new modtor variable
+            modtor*  m = new m_variable(from);
+            m->setparam("id",new modtor_param("interpolate"));
+            params.insert(std::pair<std::string, modtor_param>("fade",modtor_param(m)));
+            
+            segment_scale.setin_minmax(0., 1.);
+            segment_scale.setout_min(0.);
+            segment_scale.setout_max(1.);
+        };
+        
+        ~m_interpolate()
+        {
+            params.clear();
+        }
+        
+        double m_fade1 = 1.;
+        double m_fade2 = 0.;
+        double m_curve = 0.;
+        double m_val = 0.;
+        scale_curve segment_scale;
+
+        void seed(std::string seed_str) override
+        {
+        }
+        
+        void sync(double _phase) override
+        {
+        }
+        
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
+            modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
+            modtor_param * p_fade = params["fade"].buffer_proc(numframes, deltatime);
+            
+            modtor_param * p_fadecurve = params["fadecurve"].buffer_proc(numframes, deltatime);
+            
+            // sample curve
+            double fadecurve = std::clamp(p_fadecurve->get_b(0),-1.04,1.04);
+            // fadecurve = 0 : linear
+            // fadecurve = 1 : tight (square)
+            segment_scale.setcurve(fadecurve);
+            
+            for(int i=0; i<numframes; i++)
+            {
+                // get all the parameters
+                double in1 = p_a->get_b(i);
+                double in2 = p_b->get_b(i);
+                double mul = p_mul->get_b(i);
+                double add = p_add->get_b(i);
+                double fade = std::clamp(p_fade->get_b(i),0.,1.);
+                
+                //m_fade1 = std::clamp((((1-fade)-0.5)*(1./(1.-fadecurve)))+0.5,0.,1.);
+                m_fade2 = segment_scale.apply(fade);
+                m_fade1 = 1.- m_fade2;
+                    
+                m_val = (m_fade1 * in1) + (m_fade2 * in2);
+                
+                return add+(m_val*mul);
+            }
+
+        }
+        
+        double get(double deltatime) override
+        {
+            // get all the parameters
+            double in1 = params["a"].get(deltatime);
+            double in2 = params["b"].get(deltatime);
+            double mul = params["mul"].get(deltatime);
+            double add = params["add"].get(deltatime);
+            double fade = std::clamp(params["fade"].get(deltatime),0.,1.);
+            
+            double fadecurve = std::clamp(params["fadecurve"].get(deltatime),-1.04,1.04);
+            
+            // fadecurve = 0 : linear
+            // fadecurve = 1 : tight (square)
+
+            
+            segment_scale.setcurve(fadecurve);
+            //m_fade1 = std::clamp((((1-fade)-0.5)*(1./(1.-fadecurve)))+0.5,0.,1.);
+            m_fade2 = segment_scale.apply(fade);
+            m_fade1 = 1.- m_fade2;
+                
+            m_val = (m_fade1 * in1) + (m_fade2 * in2);
+            
+            return add+(m_val*mul);
+        }
     };
+    
+    
+    
     
     modtor_type_enum modtor_create_fromstring(std::string s, modtor *&m, double from)
     {
@@ -3177,6 +3479,21 @@ namespace maxlang {
             if(m) delete m;
             m = new m_input(from);
             return modtor_type_enum::input;
+        }
+        
+        if(s == "variable")
+        {
+            if(m) delete m;
+            m = new m_variable(from);
+            return modtor_type_enum::variable;
+        }
+        
+        
+        if(s == "interpolate")
+        {
+            if(m) delete m;
+            m = new m_interpolate(from);
+            return modtor_type_enum::interpolate;
         }
         
         return modtor_type_enum::unknown;

@@ -1,8 +1,11 @@
 
 cmake_minimum_required(VERSION 3.19)
 
+project(bufgranulp)
+
 if (APPLE)
 	set(CMAKE_OSX_ARCHITECTURES x86_64;arm64)
+	set(SAF_PERFORMANCE_LIB "SAF_USE_APPLE_ACCELERATE")
 endif ()
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/../../max-sdk-base/script/max-pretarget.cmake)
@@ -33,6 +36,9 @@ add_library(
 	MODULE
 	${PROJECT_SRC}
 )
+
+add_subdirectory(../libraries/Spatial_Audio_Framework saf)
+target_link_libraries(${PROJECT_NAME} PRIVATE saf)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/../../max-sdk-base/script/max-posttarget.cmake)
 
