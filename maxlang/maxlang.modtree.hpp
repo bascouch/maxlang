@@ -20,7 +20,56 @@ namespace maxlang {
     
     enum modtor_param_type { e_int, e_double, e_list, e_modtor, e_string };
     
+
     class modtor;
+
+    class scope
+    {
+        public :
+        std::map<std::string,double> variables ;
+        
+        double getvariable(std::string varname)
+        {
+            if ( auto ret = variables.find(varname); ret != variables.end() )
+            {
+         
+                return variables[varname] ;
+            } else
+                return 0;
+        };
+        
+        int setvariable(std::string varname, double _value)
+        {
+            if ( auto ret = variables.find(varname); ret != variables.end() )
+            {
+                variables[varname] =_value;
+                return 1 ;
+            } else
+            {
+                variables.insert(std::pair<std::string,double>(varname, _value));
+                return 1;
+            }
+                ;
+        };
+        
+        int touch(std::string varname)
+        {
+            if ( auto ret = variables.find(varname); ret != variables.end() )
+            {
+                return 0 ;
+            } else
+            {
+                variables.insert(std::pair<std::string,double>(varname, 0.));
+                return 1;
+            }
+        };
+        
+        
+        void touch(modtor * m)
+        {};
+    };
+    
+    
     
     enum modtor_type_enum{
         unknown,
@@ -44,7 +93,8 @@ namespace maxlang {
         interpolate
     };
 
-    modtor_type_enum modtor_create_fromstring(std::string s, modtor *&m, double from);
+    modtor_type_enum modtor_create_fromstring(std::string s, modtor *&m, scope * scope);
+
 
     class modtor_param
     {
@@ -84,7 +134,7 @@ namespace maxlang {
     };
 
     
-maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&paramB);
+maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *&paramB, scope * _scope);
 
     
     class modtor {
@@ -100,13 +150,13 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         std::string modtor_refname;
         std::string modtor_classname;
         
-        
+        scope * _scope;
         
         
         modtor()
         {
-            modtor_classname = typeid(this).name();
-            std::cout << typeid(this).name();
+            //modtor_classname = typeid(this).name();
+            //std::cout << typeid(this).name();
         }
         
         virtual ~modtor()
@@ -131,19 +181,9 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
             if(name=="id")
             {
                 var_ref_internal = value->getstring();
-                if ( auto ret = variables.find(var_ref_internal); ret != variables.end() )
-                {
-                    // found
-                    std::cout << "Found " << ret->first << " " << ret->second << '\n';
-                    var_ref_internal = ret->first;
-             
-                    return 1;
-                } else {
-                    // not found
-                    
-                 variables.insert(std::pair<std::string,double>(ret->first, value->_value_d));
-                    return 1;
-                }
+                auto ret = _scope->touch(var_ref_internal) ;
+                
+                return 1;
             }
             // common seed param
             if(name=="seed")
@@ -185,19 +225,29 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
             }
         }
         
+        modtor* get_param_double(std::string name)
+        {
+            if ( params.find(name) == params.end() )
+            { // not found
+                return 0;
+            } else {
+                // found
+                return params[name].getmodtor();
+            }
+        }
+        
         
         
         // ?? v
         int setvariable_recurse(std::string id, double val);
         
-        int getvariable(std::string)
+        double getvariable(std::string varname)
         {
-            
+            return _scope->getvariable(varname);
         }
         
-        modtor * merge_modtor(maxlang::modtor *modtor_B,maxlang::modtor *&modtor_returned)
+        modtor * merge_modtor(maxlang::modtor *modtor_B,maxlang::modtor *&returned_modtor, scope * _scope)
         {
-            maxlang::modtor * returned_modtor = NULL;
             // check modtor A B equality by classname
             if(this->modtor_classname == modtor_B->modtor_classname)
             {
@@ -208,7 +258,14 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
                 std::vector<std::string> keysB;
                 for (std::map<std::string, modtor_param>::iterator it=params.begin(); it!=params.end(); ++it)
                 {
-                    keysB.push_back(it->first);
+                    modtor_param * _paramA = &it->second;
+                    modtor_param * _paramB = &modtor_B->params[it->first];
+                    if(_paramA->_type == e_double && _paramA->_value_d != _paramB->_value_d)
+                    {
+
+                        keysB.push_back(it->first);
+                    }
+                    
                 }
                 
                 for(std::string k : keysB)
@@ -217,8 +274,10 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
                     modtor_param * paramA = &params[k];
                     modtor_param * paramB = &modtor_B->params[k];
                     
-                    tmp_modtor = merge_modtor_param(paramA,paramB);
+                    //tmp_modtor = merge_modtor_param(paramA,paramB,_scope);
                     
+                    // WARNING
+                    params[k] = *merge_modtor_param(paramA,paramB,_scope);
                     //params[k].;
                     
                     
@@ -226,17 +285,17 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
                 
                 //returned_modtor
                 
-                return returned_modtor;
+                return this;
  
             }
             else
             {
                 // insert interpolate and return
                 maxlang::modtor_param * returned_modtor_param = NULL;
-                maxlang::modtor * _modtor;
+                maxlang::modtor * _modtor = NULL;
                 maxlang::modtor_param * paramA = new modtor_param(this);
                 maxlang::modtor_param * paramB = new modtor_param(modtor_B);
-                maxlang::modtor_create_fromstring("interpolate",_modtor,0.);
+                maxlang::modtor_create_fromstring("interpolate",_modtor,this->_scope);
                 _modtor->setparam("a", paramA);
                 _modtor->setparam("b", paramB);
                 return _modtor;
@@ -330,8 +389,9 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
     
     modtor_param::~modtor_param()
     {
-        if(modtor_param_type::e_modtor && _modtor)
-            delete _modtor;
+        // NASTY
+       /* if(modtor_param_type::e_modtor && _modtor)
+            delete _modtor;*/
         if(modtor_param_type::e_list)
             _list.clear();
         if( n_buffer || buffer)
@@ -445,8 +505,13 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         
     public:
         
-        m_lfo(double from)
+        m_lfo(scope * modtor_scope)
         {
+            modtor_classname = "lfo";
+            
+            _scope = modtor_scope;
+            _scope->touch(this);
+            
             params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(0.6)));
             params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("mode",modtor_param(1.)));
@@ -466,6 +531,7 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
             output_scale.setin_minmax(-1., 1.);
             
         };
+        
         
         ~m_lfo()
         {
@@ -677,11 +743,17 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         
     public:
         
-        m_line(double from)
+        m_line(scope * modtor_scope)
         {
+            
+            modtor_classname = "line";
+            
+            _scope = modtor_scope;
+            _scope->touch(this);
+            
             params.insert(std::pair<std::string, modtor_param>("time",modtor_param(5000.)));
             params.insert(std::pair<std::string, modtor_param>("varitime",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("min",modtor_param(from)));
+            params.insert(std::pair<std::string, modtor_param>("min",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
@@ -883,8 +955,14 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         
     public:
         
-        m_randi(double from)
+        m_randi(scope * modtor_scope)
         {
+            
+            modtor_classname = "randi";
+            
+            _scope = modtor_scope;
+            _scope->touch(this);
+            
             params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(6.)));
             params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("walk",modtor_param(1.)));
@@ -1093,8 +1171,13 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         
     public:
         
-        m_rand(double from)
+        m_rand(scope * modtor_scope)
         {
+            
+            modtor_classname = "rand";
+            
+            _scope = modtor_scope;
+            _scope->touch(this);
             params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(6.)));
             params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("walk",modtor_param(1.)));
@@ -1291,8 +1374,14 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         
     public:
         
-        m_choice(double from)
+        m_choice(scope * modtor_scope)
         {
+            
+            modtor_classname = "choice";
+            
+            _scope = modtor_scope;
+            _scope->touch(this);
+            
             m_list = std::vector<double>({0.,1.});
             m_list_l = m_list.size();
             params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(6.)));
@@ -1476,8 +1565,14 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         
     public:
         
-        m_choicei(double from)
+        m_choicei(scope * modtor_scope)
         {
+            
+            modtor_classname = "choicei";
+            
+            _scope = modtor_scope;
+            _scope->touch(this);
+            
             m_list = std::vector<double>({0.,1.});
             m_list_l = m_list.size();
             params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(6.)));
@@ -1683,8 +1778,14 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         
     public:
         
-        m_seqi(double from)
+        m_seqi(scope * modtor_scope)
         {
+            
+            modtor_classname = "seqi";
+            
+            _scope = modtor_scope;
+            _scope->touch(this);
+            
             m_list = std::vector<double>({0.1,0.3,0.5,0.8});
             m_list_l = m_list.size();
             params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(6.)));
@@ -1970,8 +2071,14 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         
     public:
         
-        m_seq(double from)
+        m_seq(scope * modtor_scope)
         {
+            
+            modtor_classname = "seq";
+            
+            _scope = modtor_scope;
+            _scope->touch(this);
+            
             m_list = std::vector<double>({0.1,0.3,0.5,0.8});
             m_list_l = m_list.size();
             params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(6.)));
@@ -2227,8 +2334,14 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         
     public:
         
-        m_env(double from)
+        m_env(scope * modtor_scope)
         {
+            
+            modtor_classname = "env";
+            
+            _scope = modtor_scope;
+            _scope->touch(this);
+            
             // y1 dt1 y2 dt2 y3
 
             params.insert(std::pair<std::string, modtor_param>("time",modtor_param(1000.)));
@@ -2578,8 +2691,14 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         
     public:
         
-        m_quantize(double from)
+        m_quantize(scope * modtor_scope)
         {
+            
+            modtor_classname = "quantize";
+            
+            _scope = modtor_scope;
+            _scope->touch(this);
+            
             // y1 dt1 y2 dt2 y3
 
             params.insert(std::pair<std::string, modtor_param>("in",modtor_param(0.)));
@@ -2823,8 +2942,14 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         
     public:
         
-        m_input(double from)
+        m_input(scope * modtor_scope)
         {
+            
+            modtor_classname = "input";
+            
+            _scope = modtor_scope;
+            _scope->touch(this);
+            
             params.insert(std::pair<std::string, modtor_param>("name",modtor_param("name")));
             params.insert(std::pair<std::string, modtor_param>("in",modtor_param("input")));
             params.insert(std::pair<std::string, modtor_param>("min",modtor_param(0.)));
@@ -2913,79 +3038,89 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         
     public:
     
-        m_variable(double from)
-    {
-        params.insert(std::pair<std::string, modtor_param>("name",modtor_param("name")));
-        params.insert(std::pair<std::string, modtor_param>("id",modtor_param("var0")));
-        params.insert(std::pair<std::string, modtor_param>("init",modtor_param(0)));
-        params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
-        params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
-        params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
+        m_variable(scope * modtor_scope)
+        {
+            
+            modtor_classname = "variable";
+            
+            _scope = modtor_scope;
+            _scope->touch(this);
+            
+            params.insert(std::pair<std::string, modtor_param>("name",modtor_param("name")));
+            params.insert(std::pair<std::string, modtor_param>("id",modtor_param("var0")));
+            params.insert(std::pair<std::string, modtor_param>("init",modtor_param(0)));
+            params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
+            
+            output_scale.setin_minmax(0., 1.);
+            
+            std::string varname = params["id"].getstring();
+            m_variable_val =_scope->touch(varname);
+            
+            /*if ( (variables.find("id")) == params.end() )
+            { // not found
+             variables.insert(std::pair<std::string,double>(param_value, this));
+                variables[
+                return 0;
+            } else {
+                // found
+                ret_param->
+                if(
+                params.erase(name); // TEST bug
+                params[name] = *value;
+                //std::cout << value._type << std::endl;
+            }
+            //m_dict = dictobj_findregistered_retain (gensym("maxlang.variable-internal.dict"));
+            */
+            m_val_sym = gensym("value");
+            m_min_sym = gensym("min");
+            m_max_sym = gensym("max");
+            
+        };
         
-        output_scale.setin_minmax(0., 1.);
-        /*if ( (variables.find("id")) == params.end() )
-        { // not found
-         variables.insert(std::pair<std::string,double>(param_value, this));
-            variables[
-            return 0;
-        } else {
-            // found
-            ret_param->
-            if(
-            params.erase(name); // TEST bug
-            params[name] = *value;
-            //std::cout << value._type << std::endl;
+        ~m_variable()
+        {
+            params.clear();
         }
-        //m_dict = dictobj_findregistered_retain (gensym("maxlang.variable-internal.dict"));
-        */
-        m_val_sym = gensym("value");
-        m_min_sym = gensym("min");
-        m_max_sym = gensym("max");
         
+        double m_variable_val = 0;
+        scale_curve output_scale;
+        t_symbol * m_val_sym, * m_min_sym, * m_max_sym;
+        
+        void seed(std::string seed_str) override
+        {
+
+        }
+        
+        void sync(double _phase) override
+        {
+            for (auto &p : params)
+                p.second.sync(_phase);
+        }
+        
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            
+            // TODO
+        }
+        
+        double get(double deltatime) override
+        {
+            // get all the parameters
+            std::string varname = params["id"].getstring();
+            double val = this->getvariable(varname);
+            
+            
+            m_variable_val = val ;
+            
+
+            double add = params["add"].get(deltatime);
+            double mul = params["mul"].get(deltatime);
+            
+            return add+(m_variable_val*mul);
+        }
     };
-    
-    ~m_variable()
-    {
-        params.clear();
-    }
-    
-    double m_variable_val = 0;
-    scale_curve output_scale;
-    t_symbol * m_val_sym, * m_min_sym, * m_max_sym;
-    
-    void seed(std::string seed_str) override
-    {
-
-    }
-    
-    void sync(double _phase) override
-    {
-        for (auto &p : params)
-            p.second.sync(_phase);
-    }
-    
-    void perform(double * values,int numframes,double deltatime) override
-    {
-        
-        // TODO
-    }
-    
-    double get(double deltatime) override
-    {
-        // get all the parameters
-        std::string varname = params["id"].getstring();
-        double val = this->getvariable(varname);
-        
-        
-        m_variable_val = val ;
-        
-
-        double add = params["add"].get(deltatime);
-        double mul = params["mul"].get(deltatime);
-        
-        return add+(m_variable_val*mul);
-    }
-};
 
 
 
@@ -2993,10 +3128,16 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         
     public:
         
-        m_add(double from)
+        m_add(scope * modtor_scope)
         {
-            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(from)));
-            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(0)));
+            
+            modtor_classname = "add";
+            
+            _scope = modtor_scope;
+            _scope->touch(this);
+            
+            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(0.)));
         };
         
         ~m_add()
@@ -3037,9 +3178,15 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         
     public:
         
-        m_minus(double from)
+        m_minus(scope * modtor_scope)
         {
-            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(from)));
+            
+            modtor_classname = "minus";
+            
+            _scope = modtor_scope;
+            _scope->touch(this);
+            
+            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("b",modtor_param(0)));
         };
         
@@ -3081,9 +3228,15 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         
     public:
         
-        m_mul(double from)
+        m_mul(scope * modtor_scope)
         {
-            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(from)));
+            
+            modtor_classname = "mul";
+            
+            _scope = modtor_scope;
+            _scope->touch(this);
+            
+            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("b",modtor_param(1)));
         };
         
@@ -3125,9 +3278,15 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         
     public:
         
-        m_div(double from)
+        m_div(scope * modtor_scope)
         {
-            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(from)));
+            
+            modtor_classname = "div";
+            
+            _scope = modtor_scope;
+            _scope->touch(this);
+            
+            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("b",modtor_param(1)));
         };
         
@@ -3169,10 +3328,15 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         
     public:
         
-        m_xfade(double from)
+        m_xfade(scope * modtor_scope)
         {
+            
+            modtor_classname = "xfade";
+            
+            _scope = modtor_scope;
+            _scope->touch(this);
 
-            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(from)));
+            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("b",modtor_param(1)));
             params.insert(std::pair<std::string, modtor_param>("fade",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("fadecurve",modtor_param(0.)));
@@ -3267,18 +3431,23 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         
     public:
         
-        m_interpolate(double from)
+        m_interpolate(scope * modtor_scope)
         {
+            
+            modtor_classname = "interpolate";
+            
+            _scope = modtor_scope;
+            _scope->touch(this);
 
-            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(from)));
-            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(1)));
+            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("id",modtor_param("interpolate")));
             params.insert(std::pair<std::string, modtor_param>("fadecurve",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
             
             // create new modtor variable
-            modtor*  m = new m_variable(from);
+            modtor*  m = new m_variable(modtor_scope);
             m->setparam("id",new modtor_param("interpolate"));
             params.insert(std::pair<std::string, modtor_param>("fade",modtor_param(m)));
             
@@ -3371,34 +3540,34 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
     
     
     
-    modtor_type_enum modtor_create_fromstring(std::string s, modtor *&m, double from)
+    modtor_type_enum modtor_create_fromstring(std::string s, modtor *&m, scope * scope)
     {
         /* operators */
         if(s == "add" || s == "+")
         {
             if(m) delete m;
-            m = new m_add(from);
+            m = new m_add(scope);
             return modtor_type_enum::add;
         }
         
         if(s == "minus" || s == "-")
         {
             if(m) delete m;
-            m = new m_minus(from);
+            m = new m_minus(scope);
             return modtor_type_enum::minus;
         }
         
         if(s == "mul" || s == "*")
         {
             if(m) delete m;
-            m = new m_mul(from);
+            m = new m_mul(scope);
             return modtor_type_enum::mul;
         }
         
         if(s == "div" || s == "/")
         {
             if(m) delete m;
-            m = new m_div(from);
+            m = new m_div(scope);
             return modtor_type_enum::div;
         }
         
@@ -3406,70 +3575,70 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         if(s == "lfo")
         {
             if(m) delete m;
-            m = new m_lfo(from);
+            m = new m_lfo(scope);
             return modtor_type_enum::lfo;
         }
         if(s == "line")
         {
             if(m) delete m;
-            m = new m_line(from);
+            m = new m_line(scope);
             return modtor_type_enum::line;
         }
 
         if(s == "rand")
         {
             if(m) delete m;
-            m = new m_rand(from);
+            m = new m_rand(scope);
             return modtor_type_enum::rand;
         }
         if(s == "randi")
         {
             if(m) delete m;
-            m = new m_randi(from);
+            m = new m_randi(scope);
             return modtor_type_enum::randi;
         }
         if(s == "choice")
         {
             if(m) delete m;
-            m = new m_choice(from);
+            m = new m_choice(scope);
             return modtor_type_enum::choice;
         }
         if(s == "choicei")
         {
             if(m) delete m;
-            m = new m_choicei(from);
+            m = new m_choicei(scope);
             return modtor_type_enum::choicei;
         }
         if(s == "seq")
         {
             if(m) delete m;
-            m = new m_seq(from);
+            m = new m_seq(scope);
             return modtor_type_enum::seq;
         }
         if(s == "seqi")
         {
             if(m) delete m;
-            m = new m_seqi(from);
+            m = new m_seqi(scope);
             return modtor_type_enum::seqi;
         }
         if(s == "env")
         {
             if(m) delete m;
-            m = new m_env(from);
+            m = new m_env(scope);
             return modtor_type_enum::env;
         }
         
         if(s == "quantize")
         {
             if(m) delete m;
-            m = new m_quantize(from);
+            m = new m_quantize(scope);
             return modtor_type_enum::quantize;
         }
         
         if(s == "xfade")
         {
             if(m) delete m;
-            m = new m_xfade(from);
+            m = new m_xfade(scope);
             return modtor_type_enum::xfade;
         }
         
@@ -3477,14 +3646,14 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         if(s == "input")
         {
             if(m) delete m;
-            m = new m_input(from);
+            m = new m_input(scope);
             return modtor_type_enum::input;
         }
         
         if(s == "variable")
         {
             if(m) delete m;
-            m = new m_variable(from);
+            m = new m_variable(scope);
             return modtor_type_enum::variable;
         }
         
@@ -3492,7 +3661,7 @@ maxlang::modtor * merge_modtor_param(modtor_param *&paramA, modtor_param *&param
         if(s == "interpolate")
         {
             if(m) delete m;
-            m = new m_interpolate(from);
+            m = new m_interpolate(scope);
             return modtor_type_enum::interpolate;
         }
         

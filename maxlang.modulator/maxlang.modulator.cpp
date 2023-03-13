@@ -20,6 +20,48 @@ namespace pegtl = tao::pegtl;
 
 class maxlang_modulator : public MaxCpp6<maxlang_modulator> {
 public:
+    
+    // members
+    std::chrono::high_resolution_clock::time_point std_prevTick = std::chrono::high_resolution_clock::now();
+    std::chrono::high_resolution_clock::time_point std_tack;
+    std::chrono::high_resolution_clock::time_point std_tmpTick;
+    
+    double prevTick;
+    double tack;
+    double tmpTick;
+    
+    int use_system_clock=0;
+    
+    int n_chans = 1;
+    t_atom * outlist;
+    t_atom * outstring;
+    double * lastval;
+    
+    std::vector<maxlang::modtor *> modtor_vector;
+    std::vector<std::string> modtor_sources;
+    std::vector<std::string> modtor_sources_param;
+    std::vector<std::map<std::string,maxlang::modtor*>> named_modtor_ref_vector;
+    t_systhread_mutex mutx;
+    
+    maxlang::scope * _scope;
+    
+    
+    std::vector<maxlang::modtor *> modtor_vector_destination;
+    double interpolate_coeff = 0;
+    
+    
+    
+    
+    // internal clock // disabled
+    void *m_clock;
+    double m_interval;
+    
+    int m_verbose=0;
+    
+    
+    // functions
+    
+    
 	maxlang_modulator(t_symbol * sym, long ac, t_atom * av) {
 		setupIO(1, 3); // inlets / outlets
         long v;
@@ -43,6 +85,8 @@ public:
         modtor_vector_destination.resize(n_chans, 0);
         modtor_sources.resize(n_chans);
         modtor_sources_param.resize(n_chans);
+        
+        _scope = new maxlang::scope;
         
         std::map<std::string,maxlang::modtor*> modtor_ref;
         named_modtor_ref_vector.resize(n_chans, modtor_ref);
@@ -262,6 +306,59 @@ public:
         
     }
     
+    void variable(long inlet, t_symbol * s, long ac, t_atom * av) {
+        
+        double value;
+        
+        if(ac< 2)
+        {
+            object_error(&m_ob,"variable mess needs at least 2 args");
+            return;
+        }
+        // name parsing :
+        // • direct root modtor parameter
+        // • sub-modtor by name.parameter
+        
+        std::string name = av[0].a_w.w_sym->s_name;
+        maxlang::modtor * modtor_ = modtor_vector[0];
+        
+        if(!modtor_)
+        {
+            object_error(&m_ob,"variable mess: no modulator yet defined");
+            return;
+        }
+            
+        
+        // CHECK FOR any of the arguments are symbol => modtor parameter parsing
+        
+
+        if (ac==2)
+        {
+            switch(av[1].a_type)
+            {
+                case A_LONG:
+                    value = av[1].a_w.w_long;
+                    break;
+                case A_FLOAT:
+                    value = av[1].a_w.w_float;
+                    break;
+                case A_SYM:
+                    break;
+            }
+            systhread_mutex_lock(mutx);
+            if(_scope)
+            {
+                _scope->setvariable(name, value);
+                    
+            }
+            systhread_mutex_unlock(mutx);
+        
+        
+            
+        }
+        
+    }
+    
     
     void sync(long inlet, t_symbol * s, long ac, t_atom * av) {
         
@@ -345,7 +442,7 @@ public:
                         maxlang::print_node( *root );
                     systhread_mutex_lock(mutx);
 
-                    int ret = maxlang::modtree_make(*root, modtor_vector[i], &m_ob, lastval[i]);
+                    int ret = maxlang::modtree_make(*root, modtor_vector[i], &m_ob, _scope);
                     systhread_mutex_unlock(mutx);
                     
                     if(!ret)
@@ -428,7 +525,7 @@ public:
                         maxlang::print_node( *root );
                     systhread_mutex_lock(mutx);
 
-                    int ret = maxlang::modtree_make(*root, modtor_vector_destination[i], &m_ob, lastval[i]);
+                    int ret = maxlang::modtree_make(*root, modtor_vector_destination[i], &m_ob, _scope);
                     systhread_mutex_unlock(mutx);
                     
                     if(!ret)
@@ -440,7 +537,11 @@ public:
                     {
                         // ALL GOOD
                         // merge with current graph
-                        modtor_vector[i] = merge_modtor(modtor_vector[i],modtor_vector_destination[i]);
+                        systhread_mutex_lock(mutx);
+                        modtor_vector[i] = merge_modtor(modtor_vector[i],modtor_vector_destination[i],_scope);
+                        systhread_mutex_unlock(mutx);
+
+                        
                         // &É"'(§È!ÇÀÀÇ!È§('"É&&É"'(§È!
                         
                         //
@@ -512,7 +613,7 @@ public:
                         maxlang::print_node( *root );
                     systhread_mutex_lock(mutx);
                     
-                    int ret = maxlang::valtree_make(*root, modtor_ref[i], arg_name ,&m_ob, lastval[i]);
+                    int ret = maxlang::valtree_make(*root, modtor_ref[i], arg_name ,&m_ob, _scope);
                     systhread_mutex_unlock(mutx);
                     
                     if(!ret)
@@ -550,7 +651,7 @@ public:
         {
             const char * modtor_type;
             dictionary_getstring(d,modtor_key, &modtor_type);
-            maxlang::modtor_type_enum modtor_type_e = modtor_create_fromstring(modtor_type,returned_modtor,0.);
+            maxlang::modtor_type_enum modtor_type_e = modtor_create_fromstring(modtor_type,returned_modtor,_scope);
             if(modtor_type_e == maxlang::modtor_type_enum::unknown)
             {
                 object_error(&m_ob, "unknown modtor type %s",modtor_type);
@@ -748,52 +849,23 @@ public:
             tack = gettime();
     }
     
-    // members
-    std::chrono::high_resolution_clock::time_point std_prevTick = std::chrono::high_resolution_clock::now();
-    std::chrono::high_resolution_clock::time_point std_tack;
-    std::chrono::high_resolution_clock::time_point std_tmpTick;
     
-    double prevTick;
-    double tack;
-    double tmpTick;
-    
-    int use_system_clock=0;
-    
-    int n_chans = 1;
-    t_atom * outlist;
-    t_atom * outstring;
-    double * lastval;
-    
-    std::vector<maxlang::modtor *> modtor_vector;
-    std::vector<std::string> modtor_sources;
-    std::vector<std::string> modtor_sources_param;
-    std::vector<std::map<std::string,maxlang::modtor*>> named_modtor_ref_vector;
-    t_systhread_mutex mutx;
-    
-    
-    std::vector<maxlang::modtor *> modtor_vector_destination;
-    double interpolate_coeff = 0;
-    
-    
-    
-    
-    // internal clock // disabled
-    void *m_clock;
-    double m_interval;
-    
-    int m_verbose=0;
     
 };
 
 C74_EXPORT int main(void) {
 	// create a class with the given name:
 	maxlang_modulator::makeMaxClass("maxlang.modulator");
+    post("maxlang.modulator - charles bascou - contac@charlesbascou.com");
+    post("build %s %s",__DATE__,__TIME__);
+    
 	REGISTER_METHOD(maxlang_modulator, bang);
 	REGISTER_METHOD_GIMME(maxlang_modulator, test);
     REGISTER_METHOD_GIMME(maxlang_modulator, verbose);
     REGISTER_METHOD_GIMME(maxlang_modulator, parse);
     REGISTER_METHOD_GIMME(maxlang_modulator, merge);
     REGISTER_METHOD_GIMME(maxlang_modulator, parameter);
+    REGISTER_METHOD_GIMME(maxlang_modulator, variable);
     REGISTER_METHOD_GIMME(maxlang_modulator, sync);
     REGISTER_METHOD_GIMME(maxlang_modulator, dictionary);
     REGISTER_METHOD(maxlang_modulator, clear);
