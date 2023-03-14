@@ -234,8 +234,7 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             // common seed param
             if(name=="seed")
             {
-                p = *(params[name].get());
-                params[name] = *value;
+                params[name].swap(value);
                 return 1;
             }
             // common seed param
