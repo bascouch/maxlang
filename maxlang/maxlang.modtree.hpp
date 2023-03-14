@@ -24,7 +24,7 @@ namespace maxlang {
     class modtor;
 
     class scope
-    {
+    { 
         public :
         std::map<std::string,double> variables ;
         
@@ -99,28 +99,13 @@ namespace maxlang {
     class modtor_param
     {
         public :
-        modtor_param();
-        modtor_param(double v);
-        modtor_param(int v);
-        modtor_param(std::vector<double> l);
-        modtor_param(modtor *m);
-        modtor_param(std::string s);
-        
-        ~modtor_param();
-        
-        double get(double deltatime);
-        void sync(double phase);
-        void set(double value);
-        std::vector<double> getlist();
-        std::string getstring();
-        modtor* getmodtor();
         
         modtor_param_type _type;
         
         double _value_d;
         int _value_i;
         std::vector<double> _list;
-        modtor * _modtor=0;
+        std::shared_ptr<modtor *> _modtor;
         std::string _string;
         
         // buffer
@@ -129,6 +114,62 @@ namespace maxlang {
         
         modtor_param * buffer_proc(int numframes,double deltatime);
         double get_b(int i);
+        
+        
+        // methods
+        
+        
+        modtor_param();
+        modtor_param(double v);
+        modtor_param(int v);
+        modtor_param(std::vector<double> l);
+        modtor_param(modtor *m);
+        modtor_param(std::string s);
+        
+        modtor_param& operator=(modtor_param other)
+        {
+            bool deref_modor = (_type==e_modtor);
+            std::swap(_type, other._type);
+            switch(other._type)
+                //     enum modtor_param_type { e_int, e_double, e_list, e_modtor, e_string };
+
+            {
+                case e_int :
+                    std::swap(_value_i, other._value_i);
+                    
+                    
+                case e_double :
+                    std::swap(_value_d, other._value_d);
+                
+                case e_list :
+                    std::swap(_list, other._list);
+                
+                case e_modtor :
+                    _modtor.reset();
+                    std::swap(_modtor, other._modtor);
+                    deref_modor = false;
+                    
+                case e_string :
+                    std::swap(_string, other._string);
+                
+            }
+        
+            if(deref_modor)
+                _modtor.reset();
+            
+        return *this;
+        }
+        
+        ~modtor_param();
+        
+        double get(double deltatime);
+        void sync(double phase);
+        void set(double value);
+        std::vector<double> getlist();
+        std::string getstring();
+        std::shared_ptr<modtor *> getmodtor();
+        
+       
         
         
     };
@@ -141,9 +182,8 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         
     public :
         
-        std::map<std::string, modtor_param> params;
+        std::map<std::string,std::shared_ptr<modtor_param*>> params;
         
-        static std::map<std::string,double> variables ;
         std::string var_ref_internal;
         std::random_device rd_dev;
         std::seed_seq rd_seed;
@@ -155,8 +195,14 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         
         modtor()
         {
-            //modtor_classname = typeid(this).name();
-            //std::cout << typeid(this).name();
+            modtor_classname = "undefined";
+        }
+        
+        modtor(std::string classname)
+        {
+            modtor_classname = classname;
+            //modtor_param * p = *(params["add"].get());
+
         }
         
         virtual ~modtor()
@@ -171,11 +217,11 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
                 
         int setparam(std::string name, modtor_param *value)
         {
+            maxlang::modtor_param * p;
             // check if param is a refname
             if(name=="name")
             {
                 modtor_refname = value->getstring();
-                params[name] = *value;
                 return 1;
             }
             if(name=="id")
@@ -188,6 +234,7 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             // common seed param
             if(name=="seed")
             {
+                p = *(params[name].get());
                 params[name] = *value;
                 return 1;
             }
