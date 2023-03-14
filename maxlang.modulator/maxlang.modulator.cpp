@@ -37,16 +37,16 @@ public:
     t_atom * outstring;
     double * lastval;
     
-    std::vector<maxlang::modtor *> modtor_vector;
+    std::vector<std::shared_ptr<maxlang::modtor *>> modtor_vector;
     std::vector<std::string> modtor_sources;
     std::vector<std::string> modtor_sources_param;
-    std::vector<std::map<std::string,maxlang::modtor*>> named_modtor_ref_vector;
+    std::vector<std::map<std::string,std::shared_ptr<maxlang::modtor *>>> named_modtor_ref_vector;
     t_systhread_mutex mutx;
     
     maxlang::scope * _scope;
     
     
-    std::vector<maxlang::modtor *> modtor_vector_destination;
+    std::vector<std::shared_ptr<maxlang::modtor *>> modtor_vector_destination;
     double interpolate_coeff = 0;
     
     
@@ -88,7 +88,7 @@ public:
         
         _scope = new maxlang::scope;
         
-        std::map<std::string,maxlang::modtor*> modtor_ref;
+        std::map<std::string,std::shared_ptr<maxlang::modtor*>> modtor_ref;
         named_modtor_ref_vector.resize(n_chans, modtor_ref);
         
         outlist = new t_atom[n_chans];
@@ -116,7 +116,7 @@ public:
         {
             if(modtor_head)
             {
-                lastval[k] = modtor_head->get(time);
+                lastval[k] = (*modtor_head)->get(time);
             }else
                 lastval[k] = 0.;
             atom_setfloat(outlist+k,lastval[k]);
@@ -144,7 +144,7 @@ public:
         // • sub-modtor by name.parameter
         
         std::string name = av[0].a_w.w_sym->s_name;
-        maxlang::modtor * modtor_ = modtor_vector[0];
+        std::shared_ptr<maxlang::modtor *> modtor_ = modtor_vector[0];
         
         if(!modtor_)
         {
@@ -152,8 +152,8 @@ public:
             return;
         }
             
-        std::vector<maxlang::modtor*> modtor_ref;
-        std::vector<maxlang::modtor*> modtor_ref_current;
+        std::vector<std::shared_ptr<maxlang::modtor*>> modtor_ref;
+        std::vector<std::shared_ptr<maxlang::modtor*>> modtor_ref_current;
         modtor_ref_current.resize(n_chans);
         
         std::string modtor_name;
@@ -193,10 +193,10 @@ public:
             while(nodes.size()>0)
             {
                 modtor_name = nodes[0];
-                maxlang::modtor * tmp_modtor;
+                std::shared_ptr<maxlang::modtor *> tmp_modtor;
                 for(int i=0; i<n_chans; i++)
                 {
-                    if(tmp_modtor = modtor_ref_current[i]->get_param_modtor(modtor_name))
+                    if((tmp_modtor = (*modtor_ref_current[i])->get_param_modtor(modtor_name)) != nullptr)
                     {
                         modtor_ref_current[i] = tmp_modtor;
                     }
@@ -260,8 +260,8 @@ public:
             systhread_mutex_lock(mutx);
             if(modtor_)
             {
-                for(auto &modtor_v : modtor_ref)
-                if(modtor_v->setparam(name, new maxlang::modtor_param(value))==0)
+                for(auto modtor_v : modtor_ref)
+                if((*modtor_v)->setparam(name, std::make_shared<maxlang::modtor_param*>(new maxlang::modtor_param(value)))==0)
                     object_error(&m_ob, "parameter %s not found",name.c_str());
                     
             }
@@ -293,8 +293,8 @@ public:
                 systhread_mutex_lock(mutx);
                 if(modtor_)
                 {
-                    for(auto &modtor_v : modtor_ref)
-                    if(modtor_v->setparam(name, new maxlang::modtor_param(input_list))==0)
+                    for(auto modtor_v : modtor_ref)
+                    if((*modtor_v)->setparam(name, std::make_shared<maxlang::modtor_param*>(new maxlang::modtor_param(input_list)))==0)
                         object_error(&m_ob, "parameter %s not found",name.c_str());
                         
                 }
@@ -320,7 +320,7 @@ public:
         // • sub-modtor by name.parameter
         
         std::string name = av[0].a_w.w_sym->s_name;
-        maxlang::modtor * modtor_ = modtor_vector[0];
+        std::shared_ptr<maxlang::modtor *> modtor_ = modtor_vector[0];
         
         if(!modtor_)
         {
@@ -378,7 +378,7 @@ public:
         
         systhread_mutex_lock(mutx);
         for(auto &modtor_head : modtor_vector)
-            modtor_head->sync(phase);
+            (*modtor_head)->sync(phase);
         systhread_mutex_unlock(mutx);
     }
 	
@@ -454,7 +454,7 @@ public:
                     {
                         // ALL GOOD -> get refnames
                         named_modtor_ref_vector[i].clear();
-                        modtor_vector[i]->traverse_for_ref(named_modtor_ref_vector[i]);
+                        (*modtor_vector[i])->traverse_for_ref(named_modtor_ref_vector[i]);
                     }
                 }
                 else {
@@ -546,7 +546,7 @@ public:
                         
                         //
                         named_modtor_ref_vector[i].clear();
-                        modtor_vector[i]->traverse_for_ref(named_modtor_ref_vector[i]);
+                        (*modtor_vector[i])->traverse_for_ref(named_modtor_ref_vector[i]);
                     }
                 }
                 else {
@@ -568,7 +568,7 @@ public:
         
     }
     
-    void parse_parameter( long ac, t_atom * av, std::vector<maxlang::modtor*> &modtor_ref, std::string arg_name) {
+    void parse_parameter( long ac, t_atom * av, std::vector<std::shared_ptr<maxlang::modtor*>> modtor_ref_ptr, std::string arg_name) {
         std::string name;
         std::string atoms;
         
@@ -613,7 +613,7 @@ public:
                         maxlang::print_node( *root );
                     systhread_mutex_lock(mutx);
                     
-                    int ret = maxlang::valtree_make(*root, modtor_ref[i], arg_name ,&m_ob, _scope);
+                    int ret = maxlang::valtree_make(*root, modtor_ref_ptr[i], arg_name ,&m_ob, _scope);
                     systhread_mutex_unlock(mutx);
                     
                     if(!ret)
@@ -624,7 +624,7 @@ public:
                     else
                     {
                         named_modtor_ref_vector[i].clear();
-                        modtor_vector[i]->traverse_for_ref(named_modtor_ref_vector[i]);
+                        (*modtor_vector[i])->traverse_for_ref(named_modtor_ref_vector[i]);
                     }
                 }
                 else {
@@ -641,18 +641,23 @@ public:
     
     
     
-    maxlang::modtor * dictionary_parse(t_dictionary *d)
+    std::shared_ptr<maxlang::modtor*> dictionary_parse(t_dictionary *d)
     {
-        maxlang::modtor * returned_modtor = NULL;
         t_symbol * modtor_key = gensym("modtor");
         t_symbol * param_key = gensym("param");
+        
+        std::shared_ptr<maxlang::modtor*> _modtor_ptr;
         
         if(dictionary_hasentry(d,modtor_key) )
         {
             const char * modtor_type;
             dictionary_getstring(d,modtor_key, &modtor_type);
-            maxlang::modtor_type_enum modtor_type_e = modtor_create_fromstring(modtor_type,returned_modtor,_scope);
-            if(modtor_type_e == maxlang::modtor_type_enum::unknown)
+            /* create operator modtor */
+            maxlang::modtor_type_enum * modtor_type_e ;
+            
+            _modtor_ptr = maxlang::modtor_create_fromstring(modtor_type,_scope,modtor_type_e);
+            
+            if(*modtor_type_e == maxlang::modtor_type_enum::unknown)
             {
                 object_error(&m_ob, "unknown modtor type %s",modtor_type);
                 return NULL;
@@ -688,45 +693,44 @@ public:
                     if(atoms[0].a_type == A_FLOAT)
                     {
                         double v = atoms[0].a_w.w_float;
-                        _modtor_param = new maxlang::modtor_param(v);
-                        returned_modtor->setparam(name, _modtor_param);
+                        (*_modtor_ptr)->setparam(name, std::make_shared<maxlang::modtor_param*>(new maxlang::modtor_param(v)));
+                        
                         if(name=="seed")
-                            returned_modtor->seed(std::to_string(v));
+                            (*_modtor_ptr)->seed(std::to_string(v));
                         if(name=="sync")
-                            returned_modtor->sync(v);
+                            (*_modtor_ptr)->sync(v);
                     }
                     else if (atoms[0].a_type == A_LONG)
                     {
                         int v = atoms[0].a_w.w_long;
-                        _modtor_param = new maxlang::modtor_param(v);
-                        returned_modtor->setparam(name, _modtor_param);
+                        (*_modtor_ptr)->setparam(name, std::make_shared<maxlang::modtor_param*>(new maxlang::modtor_param(v)));
                         if(name=="seed")
-                            returned_modtor->seed(std::to_string(v));
+                            (*_modtor_ptr)->seed(std::to_string(v));
                         if(name=="sync")
-                            returned_modtor->sync(v);
+                            (*_modtor_ptr)->sync(v);
 
                     }else if (atoms[0].a_type == A_SYM)
                     {
                         char * s = atoms[0].a_w.w_sym->s_name;
                         if(s)
                         {
-                            _modtor_param = new maxlang::modtor_param(s);
-                            returned_modtor->setparam(name, _modtor_param);
+                            (*_modtor_ptr)->setparam(name, std::make_shared<maxlang::modtor_param*>(new maxlang::modtor_param(s)));
+                            
                             if(name=="seed")
-                                returned_modtor->seed(std::string(s));
+                                (*_modtor_ptr)->seed(std::string(s));
                         }
                         
                     }else if (atoms[0].a_type == A_OBJ)
                     {
                         t_dictionary * dchild;
-                        maxlang::modtor * modtorchild;
+                        std::shared_ptr<maxlang::modtor*> modtorchild_ptr;
                         
                         dictionary_getdictionary(sub_dict, keys[i], (t_object**)&dchild);
-                        modtorchild = dictionary_parse(dchild);
-                        if(modtorchild)
+                        modtorchild_ptr = dictionary_parse(dchild);
+                        
+                        if(modtorchild_ptr)
                         {
-                            _modtor_param = new maxlang::modtor_param(modtorchild);
-                            returned_modtor->setparam(name, _modtor_param);
+                            (*_modtor_ptr)->setparam(name, std::make_shared<maxlang::modtor_param*>(new maxlang::modtor_param(modtorchild_ptr)));
                         }
                     }
                 }else
@@ -747,8 +751,8 @@ public:
                         }
                     }
                     
-                    _modtor_param = new maxlang::modtor_param(retlist);
-                    returned_modtor->setparam(name, _modtor_param);
+                    (*_modtor_ptr)->setparam(name, std::make_shared<maxlang::modtor_param*>(new maxlang::modtor_param(retlist)));
+                    
                 }
             }
             if(keys)
@@ -757,7 +761,7 @@ public:
             
         }
         
-        return returned_modtor;
+        return _modtor_ptr;
     }
     
     
@@ -774,14 +778,14 @@ public:
             }
             for(int i=0; i< n_chans; i++)
             {
-                maxlang::modtor * modtor = dictionary_parse(d);
-                if(modtor)
+                std::shared_ptr<maxlang::modtor *> modtor_ptr = dictionary_parse(d);
+                if(modtor_ptr)
                 {
                     if(modtor_vector[i])
-                        delete modtor_vector[i];
-                    modtor_vector[i] = modtor;
+                        modtor_vector[i].reset();
+                    modtor_vector[i].swap(modtor_ptr);
                     named_modtor_ref_vector[i].clear();
-                    modtor_vector[i]->traverse_for_ref(named_modtor_ref_vector[i]);
+                    (*modtor_vector[i])->traverse_for_ref(named_modtor_ref_vector[i]);
                     return;
                 }
                 
@@ -804,8 +808,7 @@ public:
         for(int i=0; i<n_chans; i++)
         {
             if(modtor_vector[i]){
-                delete modtor_vector[i];
-                modtor_vector[i] = NULL;
+                modtor_vector[i].reset();
                 named_modtor_ref_vector[i].clear();
             }
         }

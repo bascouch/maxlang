@@ -13,6 +13,9 @@
 #include <cmath>
 #include <random>
 #include <algorithm>
+#include <memory>
+#include <mutex>
+#include <thread>
 
 namespace maxlang {
 
@@ -93,8 +96,7 @@ namespace maxlang {
         interpolate
     };
 
-    modtor_type_enum modtor_create_fromstring(std::string s, modtor *&m, scope * scope);
-
+std::shared_ptr<modtor*>  modtor_create_fromstring(std::string s, scope * scope, modtor_type_enum *&type_return);
 
     class modtor_param
     {
@@ -123,7 +125,7 @@ namespace maxlang {
         modtor_param(double v);
         modtor_param(int v);
         modtor_param(std::vector<double> l);
-        modtor_param(modtor *m);
+        modtor_param(std::shared_ptr<modtor *>m);
         modtor_param(std::string s);
         
         modtor_param& operator=(modtor_param other)
@@ -175,7 +177,7 @@ namespace maxlang {
     };
 
     
-maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *&paramB, scope * _scope);
+std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*> paramA_ptr, std::shared_ptr<modtor_param*> paramB_ptr, scope * _scope);
 
     
     class modtor {
@@ -201,7 +203,7 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         modtor(std::string classname)
         {
             modtor_classname = classname;
-            //modtor_param * p = *(params["add"].get());
+            //modtor_param * p = *((*params["add"])->get());
 
         }
         
@@ -215,43 +217,50 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         virtual void sync(double phase) = 0;
         virtual void seed(std::string seed_string) = 0;
                 
-        int setparam(std::string name, modtor_param *value)
+        int setparam(std::string name, std::shared_ptr<modtor_param*> param)
         {
             maxlang::modtor_param * p;
             // check if param is a refname
             if(name=="name")
             {
-                modtor_refname = value->getstring();
+                p = *param;
+                modtor_refname = p->getstring();
+                params[name].swap(param);
                 return 1;
             }
             if(name=="id")
             {
-                var_ref_internal = value->getstring();
+                p = *param;
+                var_ref_internal = p->getstring();
                 auto ret = _scope->touch(var_ref_internal) ;
-                
+                params[name].swap(param);
                 return 1;
             }
             // common seed param
             if(name=="seed")
             {
-                params[name].swap(value);
+                p = *param;
+                params[name].swap(param);
                 return 1;
             }
             // common seed param
             if(name=="sync")
             {
-                params[name] = *value;
+                p = *param;
+                params[name].swap(param);
                 return 1;
             }
             // else specific modtor param
             if ( params.find(name) == params.end() )
             { // not found
-                params[name] = *value;
+                p = *param;
+                params[name].swap(param);
                 return 0;
             } else {
                 // found
-                params.erase(name); // TEST bug
-                params[name] = *value;
+                p = *param;
+                params[name].reset();
+                params[name].swap(param);
                 //std::cout << value._type << std::endl;
             }
             
@@ -260,25 +269,35 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         
         
         
-        modtor* get_param_modtor(std::string name)
+        std::shared_ptr<modtor*> get_param_modtor(std::string name)
         {
-            if ( params.find(name) == params.end() )
-            { // not found
-                return 0;
+            
+            if ( params.find(name) != params.end())
+            { // found
+                maxlang::modtor_param * p = *params[name];
+                if( p->_type == e_modtor )
+                    return p->getmodtor();
+                else
+                    return nullptr;
             } else {
-                // found
-                return params[name].getmodtor();
+                // not found
+                return nullptr;
             }
         }
         
-        modtor* get_param_double(std::string name)
+        
+        double get_param_double(std::string name)
         {
-            if ( params.find(name) == params.end() )
-            { // not found
-                return 0;
+            if ( params.find(name) != params.end())
+            { // found
+                maxlang::modtor_param * p = *params[name];
+                if( p->_type == e_double )
+                    return p->_value_d;
+                else
+                    return 0.;
             } else {
-                // found
-                return params[name].getmodtor();
+                // not found
+                return 0.;
             }
         }
         
@@ -292,9 +311,11 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             return _scope->getvariable(varname);
         }
         
-        modtor * merge_modtor(maxlang::modtor *modtor_B,maxlang::modtor *&returned_modtor, scope * _scope)
+        modtor * merge_modtor(std::shared_ptr<modtor*> modtor_B_ptr,maxlang::modtor *&returned_modtor, scope * _scope)
         {
             // check modtor A B equality by classname
+            modtor* modtor_B = *modtor_B_ptr;
+            
             if(this->modtor_classname == modtor_B->modtor_classname)
             {
                 // recheck for type equality of each params
@@ -302,10 +323,12 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
                 // modtor_param_type { e_int, e_double, e_list, e_modtor, e_string };
                 // retreive all params from B
                 std::vector<std::string> keysB;
-                for (std::map<std::string, modtor_param>::iterator it=params.begin(); it!=params.end(); ++it)
+                for (std::map<std::string, std::shared_ptr<modtor_param*>>::iterator it=params.begin(); it!=params.end(); ++it)
                 {
-                    modtor_param * _paramA = &it->second;
-                    modtor_param * _paramB = &modtor_B->params[it->first];
+                    std::shared_ptr<modtor_param*> _paramA_ptr = it->second;
+                    std::shared_ptr<modtor_param*> _paramB_ptr = modtor_B->params[it->first];
+                    modtor_param* _paramA = *_paramA_ptr;
+                    modtor_param* _paramB = *_paramB_ptr;
                     if(_paramA->_type == e_double && _paramA->_value_d != _paramB->_value_d)
                     {
 
@@ -317,15 +340,16 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
                 for(std::string k : keysB)
                 {
                     maxlang::modtor * tmp_modtor = NULL;
-                    modtor_param * paramA = &params[k];
-                    modtor_param * paramB = &modtor_B->params[k];
+                    std::shared_ptr<modtor_param*> _paramA_ptr = params[k];
+                    std::shared_ptr<modtor_param*> _paramB_ptr = modtor_B->params[k];
+                    modtor_param * paramA = *_paramA_ptr;
+                    modtor_param * paramB = *_paramB_ptr;
                     
                     //tmp_modtor = merge_modtor_param(paramA,paramB,_scope);
                     
                     // WARNING
-                    params[k] = *merge_modtor_param(paramA,paramB,_scope);
-                    //params[k].;
-                    
+                    std::shared_ptr<modtor_param*> p = merge_modtor_param(_paramA_ptr,_paramB_ptr,_scope);
+                    params[k] = p;
                     
                 }
                 
@@ -339,23 +363,24 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
                 // insert interpolate and return
                 maxlang::modtor_param * returned_modtor_param = NULL;
                 maxlang::modtor * _modtor = NULL;
-                maxlang::modtor_param * paramA = new modtor_param(this);
-                maxlang::modtor_param * paramB = new modtor_param(modtor_B);
-                maxlang::modtor_create_fromstring("interpolate",_modtor,this->_scope);
-                _modtor->setparam("a", paramA);
-                _modtor->setparam("b", paramB);
-                return _modtor;
+                maxlang::modtor_param * paramA = new modtor_param(std::make_shared<modtor*>(this));
+                maxlang::modtor_param * paramB = new modtor_param(std::make_shared<modtor*>(modtor_B));
+                
+                std::shared_ptr<maxlang::modtor_param *> paramA_ptr = std::make_shared<maxlang::modtor_param *>(paramA);
+                std::shared_ptr<maxlang::modtor_param *> paramB_ptr = std::make_shared<maxlang::modtor_param *>(paramB);
+                
+                /* create operator modtor */
+                modtor_type_enum * modtor_type_e ;
+                
+                std::shared_ptr<maxlang::modtor*> _modtor_ptr = maxlang::modtor_create_fromstring("interpolate",this->_scope,modtor_type_e);
+                
+                (*_modtor_ptr)->setparam("a", paramA_ptr);
+                (*_modtor_ptr)->setparam("b", paramB_ptr);
+
                 
                 
-                /*
-                // create operator modtor
-                modtor_type_enum modtor_type_e = modtor_create_fromstring(op_str,_modtor,0.);
+                return (*_modtor_ptr);
                 
-                // parse the operator arguments and make modtor_param
-                maxlang::modtor_param * value_a, *value_b;
-                auto ret_a = modtree_parse_modtor_operator_argument(*arg_a_node,_modtor,"a",value_a,m_ob);
-                auto ret_b = modtree_parse_modtor_operator_argument(*arg_b_node,_modtor,"b",value_b,m_ob);
-                */
             }
             
             
@@ -363,23 +388,27 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             return nullptr; // ;)
         }
 
-        int traverse_for_ref(std::map<std::string,maxlang::modtor*> &name_ref)
+        int traverse_for_ref(std::map<std::string,std::shared_ptr<maxlang::modtor*>> &name_ref)
         {
-            for (std::map<std::string, modtor_param>::iterator it=params.begin(); it!=params.end(); ++it)
+            for (std::map<std::string, std::shared_ptr<modtor_param*>>::iterator it=params.begin(); it!=params.end(); ++it)
             {
+                std::shared_ptr<modtor_param*> _param_ptr = it->second;
+                modtor_param* _param = *_param_ptr;
+                
                 if( it->first == "name" )
                 {
-                    std::string param_value = it->second.getstring();
-                    name_ref.insert(std::pair<std::string,maxlang::modtor*>(param_value, this));
+                    std::string param_value = _param->getstring();
+                    name_ref.insert(std::pair<std::string,std::shared_ptr<maxlang::modtor*>>(param_value, std::make_shared<maxlang::modtor*>(this)));
                 }
                 else // check if modtor has a sub-modtor
                 {
-                    if(it->second._type == modtor_param_type::e_modtor)
+                    if(_param->_type == modtor_param_type::e_modtor)
                     {
-                        modtor * sub_modtor = it->second.getmodtor();
+                        std::shared_ptr<modtor *> sub_modtor = _param->getmodtor();
+                        modtor* m = *sub_modtor;
                         int ret;
                         // RECURSE
-                        ret = sub_modtor->traverse_for_ref(name_ref);
+                        ret = m->traverse_for_ref(name_ref);
                     }
                 }
             }
@@ -421,7 +450,7 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         _list = l;
     }
     
-    modtor_param::modtor_param(modtor *m){
+    modtor_param::modtor_param(std::shared_ptr<modtor *>m){
         
         _type = modtor_param_type::e_modtor;
         _modtor = m;
@@ -436,8 +465,8 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
     modtor_param::~modtor_param()
     {
         // NASTY
-       /* if(modtor_param_type::e_modtor && _modtor)
-            delete _modtor;*/
+       if(modtor_param_type::e_modtor && _modtor)
+           _modtor.reset();
         if(modtor_param_type::e_list)
             _list.clear();
         if( n_buffer || buffer)
@@ -451,7 +480,7 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
     void modtor_param::sync(double phase)
     {
         if(_type == modtor_param_type::e_modtor)
-            _modtor->sync(phase);
+            (*_modtor)->sync(phase);
     }
     
     double modtor_param::get(double deltatime)
@@ -467,7 +496,7 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             case modtor_param_type::e_string:
                 return 0.;
             case modtor_param_type::e_modtor:
-                double v = _modtor->get(deltatime);
+                double v = (*_modtor)->get(deltatime);
                 return v;
             
         }
@@ -484,7 +513,7 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         return _string;
     }
     
-    modtor* modtor_param::getmodtor()
+    std::shared_ptr<modtor*> modtor_param::getmodtor()
     {
         return _modtor;
     }
@@ -534,7 +563,7 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
                     *(buf_p++) = val;
                 break;
             case modtor_param_type::e_modtor:
-                _modtor->perform(buffer, numframes, deltatime);
+                (*_modtor)->perform(buffer, numframes, deltatime);
                 break;
             
         }
@@ -558,16 +587,16 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             _scope = modtor_scope;
             _scope->touch(this);
             
-            params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(0.6)));
-            params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("mode",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("pw",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("min",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("count",modtor_param(-1.)));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("freq",    std::make_shared<modtor_param*>(new modtor_param(0.6))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("varifreq",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("mode",    std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("pw",      std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("min",     std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("max",     std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("curve",   std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("mul",     std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("add",     std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("count",   std::make_shared<modtor_param*>(new modtor_param(-1.))));
             
             
             mt_gen = std::mt19937(rd_dev());
@@ -611,7 +640,7 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         {
             phase = _phase;
             for (auto &p : params)
-                p.second.sync(phase);
+                (*p.second)->sync(phase);
         }
         
         double wave(double phase, double mode, double pw )
@@ -659,26 +688,26 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         
         void perform(double * values,int numframes,double deltatime) override
         {
-            modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
-            modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
-            modtor_param * p_mode = params["mode"].buffer_proc(numframes, deltatime);
-            modtor_param * p_pw = params["pw"].buffer_proc(numframes, deltatime);
-            modtor_param * p_min = params["min"].buffer_proc(numframes, deltatime);
-            modtor_param * p_max = params["max"].buffer_proc(numframes, deltatime);
-            modtor_param * p_curve = params["curve"].buffer_proc(numframes, deltatime);
-            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-            modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
+            modtor_param * p_freq =     (*params["freq"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_varifreq = (*params["varifreq"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_mode =     (*params["mode"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_pw =       (*params["pw"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_min =      (*params["min"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_max =      (*params["max"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_curve =    (*params["curve"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_mul =      (*params["mul"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_add =      (*params["add"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_count =    (*params["count"])->buffer_proc(numframes, deltatime);
             
             modtor_param * p_time = 0;
             
             bool time_mode = params.find("time") != params.end();
             
             if(time_mode)
-                p_time = params["time"].buffer_proc(numframes, deltatime);
+                p_time = (*params["time"])->buffer_proc(numframes, deltatime);
 
             if(params.find("varitime") != params.end())
-                p_varifreq = params["varitime"].buffer_proc(numframes, deltatime);
+                p_varifreq = (*params["varitime"])->buffer_proc(numframes, deltatime);
             
             for(int i=0; i<numframes; i++)
             {
@@ -735,27 +764,27 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         {
 
             // get all the parameters (check time or freq format)
-            double freq = params["freq"].get(deltatime);
-            double varifreq = params["varifreq"].get(deltatime);
+            double freq = (*params["freq"])->get(deltatime);
+            double varifreq = (*params["varifreq"])->get(deltatime);
             
             if(params.find("time") != params.end())
-                freq = 1000./ std::clamp(params["time"].get(deltatime),0.001,10000000.);
+                freq = 1000./ std::clamp((*params["time"])->get(deltatime),0.001,10000000.);
             if(params.find("varitime") != params.end())
-                varifreq = params["varitime"].get(deltatime);
+                varifreq = (*params["varitime"])->get(deltatime);
             
-            double mode = params["mode"].get(deltatime);
-            double pw = params["pw"].get(deltatime);
-            double min = params["min"].get(deltatime);
-            double max = params["max"].get(deltatime);
-            double curve = params["curve"].get(deltatime);
-            double add = params["add"].get(deltatime);
-            double mul = params["mul"].get(deltatime);
+            double mode = (*params["mode"])->get(deltatime);
+            double pw = (*params["pw"])->get(deltatime);
+            double min = (*params["min"])->get(deltatime);
+            double max = (*params["max"])->get(deltatime);
+            double curve = (*params["curve"])->get(deltatime);
+            double add = (*params["add"])->get(deltatime);
+            double mul = (*params["mul"])->get(deltatime);
             
             /** count special parameter: if > 0
                 • freq = 1./count
                 • deltatime = 1000.
             */
-            double count = params["count"].get(deltatime);
+            double count = (*params["count"])->get(deltatime);
             if(count >= 0.)
             {
                 freq = (count > 0.01)? 1./count : 100. ;
@@ -797,14 +826,14 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             _scope = modtor_scope;
             _scope->touch(this);
             
-            params.insert(std::pair<std::string, modtor_param>("time",modtor_param(5000.)));
-            params.insert(std::pair<std::string, modtor_param>("varitime",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("min",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("count",modtor_param(-1.)));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("time",std::make_shared<modtor_param*>(new modtor_param(5000.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("varitime",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("min",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("max",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("curve",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("mul",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("add",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("count",std::make_shared<modtor_param*>(new modtor_param(-1.))));
             
             mt_gen_time = std::mt19937(rd_dev());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
@@ -850,24 +879,24 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         
         void perform(double * values,int numframes,double deltatime) override
         {
-            modtor_param * p_time = params["time"].buffer_proc(numframes, deltatime);
-            modtor_param * p_varitime = params["varitime"].buffer_proc(numframes, deltatime);
-            modtor_param * p_min = params["min"].buffer_proc(numframes, deltatime);
-            modtor_param * p_max = params["max"].buffer_proc(numframes, deltatime);
-            modtor_param * p_curve = params["curve"].buffer_proc(numframes, deltatime);
-            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-            modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
+            modtor_param * p_time = (*params["time"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_varitime = (*params["varitime"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_min = (*params["min"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_max = (*params["max"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_curve = (*params["curve"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = (*params["mul"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_add = (*params["add"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_count = (*params["count"])->buffer_proc(numframes, deltatime);
             
             modtor_param * p_freq = 0;
             
             bool freq_mode = params.find("freq") != params.end();
             
             if(freq_mode)
-                p_freq = params["freq"].buffer_proc(numframes, deltatime);
+                p_freq = (*params["freq"])->buffer_proc(numframes, deltatime);
 
             if(params.find("varifreq") != params.end())
-                p_varitime = params["varifreq"].buffer_proc(numframes, deltatime);
+                p_varitime = (*params["varifreq"])->buffer_proc(numframes, deltatime);
             
             for(int i=0; i<numframes; i++)
             {
@@ -934,27 +963,27 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         double get(double deltatime) override
         {
             // get all the parameters (check time or freq format)
-            double time = params["time"].get(deltatime);
-            double varitime = params["varitime"].get(deltatime);
+            double time = (*params["time"])->get(deltatime);
+            double varitime = (*params["varitime"])->get(deltatime);
 
             if(params.find("freq") != params.end())
-                time = 1000./ std::clamp(params["freq"].get(deltatime),0.001,10000000.);
+                time = 1000./ std::clamp((*params["freq"])->get(deltatime),0.001,10000000.);
 
             if(params.find("varifreq") != params.end())
-                varitime = params["varifreq"].get(deltatime);
+                varitime = (*params["varifreq"])->get(deltatime);
             
-            double min = params["min"].get(deltatime);
-            double max = params["max"].get(deltatime);
-            double curve = params["curve"].get(deltatime);
-            double add = params["add"].get(deltatime);
-            double mul = params["mul"].get(deltatime);
+            double min = (*params["min"])->get(deltatime);
+            double max = (*params["max"])->get(deltatime);
+            double curve = (*params["curve"])->get(deltatime);
+            double add = (*params["add"])->get(deltatime);
+            double mul = (*params["mul"])->get(deltatime);
             double tmp;
             
             /** count special parameter: if > 0
                 • freq = 1./count
                 • deltatime = 1000.
             */
-            double count = params["count"].get(deltatime);
+            double count = (*params["count"])->get(deltatime);
             if(count >= 0.)
             {
                 time = (count > 0.01)? count * 1000 : 10. ;
@@ -1009,16 +1038,16 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             _scope = modtor_scope;
             _scope->touch(this);
             
-            params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(6.)));
-            params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("walk",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("min",modtor_param(0)));
-            params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("segcurve",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("count",modtor_param(-1.)));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("freq",std::make_shared<modtor_param*>(new modtor_param(6.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("varifreq",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("walk",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("min",std::make_shared<modtor_param*>(new modtor_param(0))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("max",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("curve",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("segcurve",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("mul",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("add",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("count",std::make_shared<modtor_param*>(new modtor_param(-1.))));
             
             //m_rand_prev = from;
             //m_rand_target = from;
@@ -1075,26 +1104,26 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         
         void perform(double * values,int numframes,double deltatime) override
         {
-            modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
-            modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
-            modtor_param * p_walk = params["walk"].buffer_proc(numframes, deltatime);
-            modtor_param * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
-            modtor_param * p_min = params["min"].buffer_proc(numframes, deltatime);
-            modtor_param * p_max = params["max"].buffer_proc(numframes, deltatime);
-            modtor_param * p_curve = params["curve"].buffer_proc(numframes, deltatime);
-            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-            modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
+            modtor_param * p_freq = (*params["freq"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_varifreq = (*params["varifreq"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_walk = (*params["walk"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_segcurve = (*params["segcurve"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_min = (*params["min"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_max = (*params["max"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_curve = (*params["curve"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = (*params["mul"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_add = (*params["add"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_count = (*params["count"])->buffer_proc(numframes, deltatime);
             
             modtor_param * p_time = 0;
             
             bool time_mode = params.find("time") != params.end();
             
             if(time_mode)
-                p_time = params["time"].buffer_proc(numframes, deltatime);
+                p_time = (*params["time"])->buffer_proc(numframes, deltatime);
 
             if(params.find("varitime") != params.end())
-                p_varifreq = params["varitime"].buffer_proc(numframes, deltatime);
+                p_varifreq = (*params["varitime"])->buffer_proc(numframes, deltatime);
             
             for(int i=0; i<numframes; i++)
             {
@@ -1157,27 +1186,27 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         double get(double deltatime) override
         {
             // get all the parameters (check time or freq format)
-            double freq = params["freq"].get(deltatime);
-            double varifreq = params["varifreq"].get(deltatime);
+            double freq = (*params["freq"])->get(deltatime);
+            double varifreq = (*params["varifreq"])->get(deltatime);
             
             if(params.find("time") != params.end())
-                freq = 1000./ std::clamp(params["time"].get(deltatime),0.001,10000000.);
+                freq = 1000./ std::clamp((*params["time"])->get(deltatime),0.001,10000000.);
             if(params.find("varitime") != params.end())
-                varifreq = params["varitime"].get(deltatime);
+                varifreq = (*params["varitime"])->get(deltatime);
             
-            double walk = params["walk"].get(deltatime);
-            double min = params["min"].get(deltatime);
-            double max = params["max"].get(deltatime);
-            double curve = params["curve"].get(deltatime);
-            double segcurve = params["segcurve"].get(deltatime);
-            double add = params["add"].get(deltatime);
-            double mul = params["mul"].get(deltatime);
+            double walk = (*params["walk"])->get(deltatime);
+            double min = (*params["min"])->get(deltatime);
+            double max = (*params["max"])->get(deltatime);
+            double curve = (*params["curve"])->get(deltatime);
+            double segcurve = (*params["segcurve"])->get(deltatime);
+            double add = (*params["add"])->get(deltatime);
+            double mul = (*params["mul"])->get(deltatime);
             
             /** count special parameter: if > 0
                 • freq = 1./count
                 • deltatime = 1000.
             */
-            double count = params["count"].get(deltatime);
+            double count = (*params["count"])->get(deltatime);
             if(count >= 0.)
             {
                 freq = (count > 0.01)? 1./count : 100. ;
@@ -1224,15 +1253,15 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             
             _scope = modtor_scope;
             _scope->touch(this);
-            params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(6.)));
-            params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("walk",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("min",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("count",modtor_param(-1.)));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("freq",std::make_shared<modtor_param*>(new modtor_param(6.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("varifreq",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("walk",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("min",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("max",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("curve",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("mul",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("add",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("count",std::make_shared<modtor_param*>(new modtor_param(-1.))));
             
             //m_rand_prev = from;
             //m_rand_target = from;
@@ -1289,26 +1318,26 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         
         void perform(double * values,int numframes,double deltatime) override
         {
-            modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
-            modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
-            modtor_param * p_walk = params["walk"].buffer_proc(numframes, deltatime);
-            modtor_param * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
-            modtor_param * p_min = params["min"].buffer_proc(numframes, deltatime);
-            modtor_param * p_max = params["max"].buffer_proc(numframes, deltatime);
-            modtor_param * p_curve = params["curve"].buffer_proc(numframes, deltatime);
-            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-            modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
+            modtor_param * p_freq = (*params["freq"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_varifreq = (*params["varifreq"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_walk = (*params["walk"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_segcurve = (*params["segcurve"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_min = (*params["min"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_max = (*params["max"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_curve = (*params["curve"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = (*params["mul"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_add = (*params["add"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_count = (*params["count"])->buffer_proc(numframes, deltatime);
             
             modtor_param * p_time = 0;
             
             bool time_mode = params.find("time") != params.end();
             
             if(time_mode)
-                p_time = params["time"].buffer_proc(numframes, deltatime);
+                p_time = (*params["time"])->buffer_proc(numframes, deltatime);
 
             if(params.find("varitime") != params.end())
-                p_varifreq = params["varitime"].buffer_proc(numframes, deltatime);
+                p_varifreq = (*params["varitime"])->buffer_proc(numframes, deltatime);
             
             for(int i=0; i<numframes; i++)
             {
@@ -1366,26 +1395,26 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         double get(double deltatime) override
         {
             // get all the parameters (check time or freq format)
-            double freq = params["freq"].get(deltatime);
-            double varifreq = params["varifreq"].get(deltatime);
+            double freq = (*params["freq"])->get(deltatime);
+            double varifreq = (*params["varifreq"])->get(deltatime);
             
             if(params.find("time") != params.end())
-                freq = 1000./ std::clamp(params["time"].get(deltatime),0.001,10000000.);
+                freq = 1000./ std::clamp((*params["time"])->get(deltatime),0.001,10000000.);
             if(params.find("varitime") != params.end())
-                varifreq = params["varitime"].get(deltatime);
+                varifreq = (*params["varitime"])->get(deltatime);
             
-            double walk = params["walk"].get(deltatime);
-            double min = params["min"].get(deltatime);
-            double max = params["max"].get(deltatime);
-            double curve = params["curve"].get(deltatime);
-            double add = params["add"].get(deltatime);
-            double mul = params["mul"].get(deltatime);
+            double walk = (*params["walk"])->get(deltatime);
+            double min = (*params["min"])->get(deltatime);
+            double max = (*params["max"])->get(deltatime);
+            double curve = (*params["curve"])->get(deltatime);
+            double add = (*params["add"])->get(deltatime);
+            double mul = (*params["mul"])->get(deltatime);
             
             /** count special parameter: if > 0
                 • freq = 1./count
                 • deltatime = 1000.
             */
-            double count = params["count"].get(deltatime);
+            double count = (*params["count"])->get(deltatime);
             if(count >= 0.)
             {
                 freq = (count > 0.01)? 1./count : 100. ;
@@ -1430,12 +1459,12 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             
             m_list = std::vector<double>({0.,1.});
             m_list_l = m_list.size();
-            params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(6.)));
-            params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("list",modtor_param(m_list)));
-            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("count",modtor_param(-1.)));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("freq",std::make_shared<modtor_param*>(new modtor_param(6.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("varifreq",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("list",std::make_shared<modtor_param*>(new modtor_param(m_list))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("mul",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("add",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("count",std::make_shared<modtor_param*>(new modtor_param(-1.))));
             
             mt_gen_time = std::mt19937(rd_dev());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
@@ -1485,22 +1514,22 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         
         void perform(double * values,int numframes,double deltatime) override
         {
-            modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
-            modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
-            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-            modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
-            modtor_param * p_list = &params["list"];
+            modtor_param * p_freq = (*params["freq"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_varifreq = (*params["varifreq"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = (*params["mul"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_add = (*params["add"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_count = (*params["count"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_list = (*params["list"]);
             
             modtor_param * p_time = 0;
             
             bool time_mode = params.find("time") != params.end();
             
             if(time_mode)
-                p_time = params["time"].buffer_proc(numframes, deltatime);
+                p_time = (*params["time"])->buffer_proc(numframes, deltatime);
 
             if(params.find("varitime") != params.end())
-                p_varifreq = params["varitime"].buffer_proc(numframes, deltatime);
+                p_varifreq = (*params["varitime"])->buffer_proc(numframes, deltatime);
             
             for(int i=0; i<numframes; i++)
             {
@@ -1557,21 +1586,21 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         double get(double deltatime) override
         {
             // get all the parameters (check time or freq format)
-            double freq = params["freq"].get(deltatime);
-            double varifreq = params["varifreq"].get(deltatime);
+            double freq = (*params["freq"])->get(deltatime);
+            double varifreq = (*params["varifreq"])->get(deltatime);
             
             if(params.find("time") != params.end())
-                freq = 1000./ std::clamp(params["time"].get(deltatime),0.001,10000000.);
+                freq = 1000./ std::clamp((*params["time"])->get(deltatime),0.001,10000000.);
             if(params.find("varitime") != params.end())
-                varifreq = params["varitime"].get(deltatime);
+                varifreq = (*params["varitime"])->get(deltatime);
             
-            double mul = params["mul"].get(deltatime);
-            double add = params["add"].get(deltatime);
+            double mul = (*params["mul"])->get(deltatime);
+            double add = (*params["add"])->get(deltatime);
             /** count special parameter: if > 0
                 • freq = 1./count
                 • deltatime = 1000.
             */
-            double count = params["count"].get(deltatime);
+            double count = (*params["count"])->get(deltatime);
             if(count >= 0.)
             {
                 freq = (count > 0.01)? 1./count : 100. ;
@@ -1587,7 +1616,7 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
                 m_varifreq = mt_rand_time(mt_gen_time)*varifreq;
                 phase = fmodf(phase,1.);
                 // TODO : segfault when changing list too often ( not thread safe )
-                m_list = params["list"].getlist();
+                m_list = (*params["list"])->getlist();
                 m_list_l  = m_list.size();
                 //printf("m_list_l %d\n",m_list_l);
                 // new random index value
@@ -1621,13 +1650,13 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             
             m_list = std::vector<double>({0.,1.});
             m_list_l = m_list.size();
-            params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(6.)));
-            params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("list",modtor_param(m_list)));
-            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("segcurve",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("count",modtor_param(-1.)));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("freq",std::make_shared<modtor_param*>(new modtor_param(6.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("varifreq",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("list",std::make_shared<modtor_param*>(new modtor_param(m_list))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("mul",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("add",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("segcurve",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("count",std::make_shared<modtor_param*>(new modtor_param(-1.))));
             
             mt_gen_time = std::mt19937(rd_dev());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
@@ -1683,23 +1712,23 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         
         void perform(double * values,int numframes,double deltatime) override
         {
-            modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
-            modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
-            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-            modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
-            modtor_param * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
-            modtor_param * p_list = &params["list"];
+            modtor_param * p_freq = (*params["freq"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_varifreq = (*params["varifreq"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = (*params["mul"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_add = (*params["add"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_count = (*params["count"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_segcurve = (*params["segcurve"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_list = (*params["list"]);
             
             modtor_param * p_time = 0;
             
             bool time_mode = params.find("time") != params.end();
             
             if(time_mode)
-                p_time = params["time"].buffer_proc(numframes, deltatime);
+                p_time = (*params["time"])->buffer_proc(numframes, deltatime);
 
             if(params.find("varitime") != params.end())
-                p_varifreq = params["varitime"].buffer_proc(numframes, deltatime);
+                p_varifreq = (*params["varitime"])->buffer_proc(numframes, deltatime);
             
             for(int i=0; i<numframes; i++)
             {
@@ -1763,22 +1792,22 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         double get(double deltatime) override
         {
             // get all the parameters (check time or freq format)
-            double freq = params["freq"].get(deltatime);
-            double varifreq = params["varifreq"].get(deltatime);
+            double freq = (*params["freq"])->get(deltatime);
+            double varifreq = (*params["varifreq"])->get(deltatime);
             
             if(params.find("time") != params.end())
-                freq = 1000./ std::clamp(params["time"].get(deltatime),0.001,10000000.);
+                freq = 1000./ std::clamp((*params["time"])->get(deltatime),0.001,10000000.);
             if(params.find("varitime") != params.end())
-                varifreq = params["varitime"].get(deltatime);
+                varifreq = (*params["varitime"])->get(deltatime);
             
-            double mul = params["mul"].get(deltatime);
-            double add = params["add"].get(deltatime);
-            double segcurve = params["segcurve"].get(deltatime);
+            double mul = (*params["mul"])->get(deltatime);
+            double add = (*params["add"])->get(deltatime);
+            double segcurve = (*params["segcurve"])->get(deltatime);
             /** count special parameter: if > 0
                 • freq = 1./count
                 • deltatime = 1000.
             */
-            double count = params["count"].get(deltatime);
+            double count = (*params["count"])->get(deltatime);
             if(count >= 0.)
             {
                 freq = (count > 0.01)? 1./count : 100. ;
@@ -1794,7 +1823,7 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
                 m_varifreq = mt_rand_time(mt_gen_time)*varifreq;
                 phase = fmodf(phase,1.);
                 // TODO : segfault when changing list too often ( not thread safe )
-                m_list = params["list"].getlist();
+                m_list = (*params["list"])->getlist();
                 m_list_l  = m_list.size();
                 //printf("m_list_l %d\n",m_list_l);
                 // new random index value
@@ -1834,16 +1863,16 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             
             m_list = std::vector<double>({0.1,0.3,0.5,0.8});
             m_list_l = m_list.size();
-            params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(6.)));
-            params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("list",modtor_param(m_list)));
-            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("segcurve",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("segcurveshape",modtor_param(0)));
-            params.insert(std::pair<std::string, modtor_param>("play",modtor_param(1)));
-            params.insert(std::pair<std::string, modtor_param>("loop",modtor_param(1)));
-            params.insert(std::pair<std::string, modtor_param>("count",modtor_param(-1.)));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("freq",std::make_shared<modtor_param*>(new modtor_param(6.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("varifreq",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("list",std::make_shared<modtor_param*>(new modtor_param(m_list))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("mul",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("add",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("segcurve",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("segcurveshape",std::make_shared<modtor_param*>(new modtor_param(0))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("play",std::make_shared<modtor_param*>(new modtor_param(1))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("loop",std::make_shared<modtor_param*>(new modtor_param(1))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("count",std::make_shared<modtor_param*>(new modtor_param(-1.))));
             
             mt_gen_time = std::mt19937(rd_dev());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
@@ -1895,16 +1924,16 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         
         void perform(double * values,int numframes,double deltatime) override
         {
-            modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
-            modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
-            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-            modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
-            modtor_param * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
-            modtor_param * p_segcurve_s = params["segcurveshape"].buffer_proc(numframes, deltatime);
-            modtor_param * p_play = params["play"].buffer_proc(numframes, deltatime);
-            modtor_param * p_loop = params["loop"].buffer_proc(numframes, deltatime);
-            modtor_param * p_list = &params["list"];
+            modtor_param * p_freq = (*params["freq"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_varifreq = (*params["varifreq"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = (*params["mul"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_add = (*params["add"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_count = (*params["count"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_segcurve = (*params["segcurve"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_segcurve_s = (*params["segcurveshape"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_play = (*params["play"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_loop = (*params["loop"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_list = (*params["list"]);
             
             modtor_param * p_time = 0;
             
@@ -1916,10 +1945,10 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             bool time_mode = params.find("time") != params.end();
             
             if(time_mode)
-                p_time = params["time"].buffer_proc(numframes, deltatime);
+                p_time = (*params["time"])->buffer_proc(numframes, deltatime);
 
             if(params.find("varitime") != params.end())
-                p_varifreq = params["varitime"].buffer_proc(numframes, deltatime);
+                p_varifreq = (*params["varitime"])->buffer_proc(numframes, deltatime);
             
             for(int i=0; i<numframes; i++)
             {
@@ -2020,32 +2049,32 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         double get(double deltatime) override
         {
             // get all the parameters (check time or freq format)
-            double freq = params["freq"].get(deltatime);
-            double varifreq = params["varifreq"].get(deltatime);
+            double freq = (*params["freq"])->get(deltatime);
+            double varifreq = (*params["varifreq"])->get(deltatime);
             
             if(params.find("time") != params.end())
-                freq = 1000./ std::clamp(params["time"].get(deltatime),0.001,10000000.);
+                freq = 1000./ std::clamp((*params["time"])->get(deltatime),0.001,10000000.);
             if(params.find("varitime") != params.end())
-                varifreq = params["varitime"].get(deltatime);
+                varifreq = (*params["varitime"])->get(deltatime);
             
-            double mul = params["mul"].get(deltatime);
-            double add = params["add"].get(deltatime);
-            double segcurve = params["segcurve"].get(deltatime);
-            bool segcurve_s = params["segcurveshape"].get(deltatime)>0;
-            int play = params["play"].get(deltatime)>0;
-            int loop = params["loop"].get(deltatime)>0;
+            double mul = (*params["mul"])->get(deltatime);
+            double add = (*params["add"])->get(deltatime);
+            double segcurve = (*params["segcurve"])->get(deltatime);
+            bool segcurve_s = (*params["segcurveshape"])->get(deltatime)>0;
+            int play = (*params["play"])->get(deltatime)>0;
+            int loop = (*params["loop"])->get(deltatime)>0;
             /** count special parameter: if > 0
                 • freq = 1./count
                 • deltatime = 1000.
             */
-            double count = params["count"].get(deltatime);
+            double count = (*params["count"])->get(deltatime);
             if(count >= 0.)
             {
                 freq = (count > 0.01)? 1./count : 100. ;
                 deltatime = 1000.;
             }
             
-            m_list = params["list"].getlist();
+            m_list = (*params["list"])->getlist();
             m_list_l  = m_list.size();
             if(m_list_l == 0 )
                 return 0.;
@@ -2127,14 +2156,14 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             
             m_list = std::vector<double>({0.1,0.3,0.5,0.8});
             m_list_l = m_list.size();
-            params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(6.)));
-            params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("list",modtor_param(m_list)));
-            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("play",modtor_param(1)));
-            params.insert(std::pair<std::string, modtor_param>("loop",modtor_param(1)));
-            params.insert(std::pair<std::string, modtor_param>("count",modtor_param(-1.)));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("freq",std::make_shared<modtor_param*>(new modtor_param(6.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("varifreq",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("list",std::make_shared<modtor_param*>(new modtor_param(m_list))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("mul",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("add",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("play",std::make_shared<modtor_param*>(new modtor_param(1))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("loop",std::make_shared<modtor_param*>(new modtor_param(1))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("count",std::make_shared<modtor_param*>(new modtor_param(-1.))));
             
             mt_gen_time = std::mt19937(rd_dev());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
@@ -2179,24 +2208,24 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         
         void perform(double * values,int numframes,double deltatime) override
         {
-            modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
-            modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
-            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-            modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
-            modtor_param * p_play = params["play"].buffer_proc(numframes, deltatime);
-            modtor_param * p_loop = params["loop"].buffer_proc(numframes, deltatime);
-            modtor_param * p_list = &params["list"];
+            modtor_param * p_freq = (*params["freq"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_varifreq = (*params["varifreq"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = (*params["mul"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_add = (*params["add"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_count = (*params["count"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_play = (*params["play"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_loop = (*params["loop"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_list = (*params["list"]);
             
             modtor_param * p_time = 0;
             
             bool time_mode = params.find("time") != params.end();
             
             if(time_mode)
-                p_time = params["time"].buffer_proc(numframes, deltatime);
+                p_time = (*params["time"])->buffer_proc(numframes, deltatime);
 
             if(params.find("varitime") != params.end())
-                p_varifreq = params["varitime"].buffer_proc(numframes, deltatime);
+                p_varifreq = (*params["varitime"])->buffer_proc(numframes, deltatime);
             
             for(int i=0; i<numframes; i++)
             {
@@ -2293,30 +2322,30 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         double get(double deltatime) override
         {
             // get all the parameters (check time or freq format)
-            double freq = params["freq"].get(deltatime);
-            double varifreq = params["varifreq"].get(deltatime);
+            double freq = (*params["freq"])->get(deltatime);
+            double varifreq = (*params["varifreq"])->get(deltatime);
             
             if(params.find("time") != params.end())
-                freq = 1000./ std::clamp(params["time"].get(deltatime),0.001,10000000.);
+                freq = 1000./ std::clamp((*params["time"])->get(deltatime),0.001,10000000.);
             if(params.find("varitime") != params.end())
-                varifreq = params["varitime"].get(deltatime);
+                varifreq = (*params["varitime"])->get(deltatime);
             
-            double mul = params["mul"].get(deltatime);
-            double add = params["add"].get(deltatime);
-            int play = params["play"].get(deltatime)>0;
-            int loop = params["loop"].get(deltatime)>0;
+            double mul = (*params["mul"])->get(deltatime);
+            double add = (*params["add"])->get(deltatime);
+            int play = (*params["play"])->get(deltatime)>0;
+            int loop = (*params["loop"])->get(deltatime)>0;
             /** count special parameter: if > 0
                 • freq = 1./count
                 • deltatime = 1000.
             */
-            double count = params["count"].get(deltatime);
+            double count = (*params["count"])->get(deltatime);
             if(count >= 0.)
             {
                 freq = (count > 0.01)? 1./count : 100. ;
                 deltatime = 1000.;
             }
             
-            m_list = params["list"].getlist();
+            m_list = (*params["list"])->getlist();
             m_list_l  = m_list.size();
             if(m_list_l == 0 )
                 return 0.;
@@ -2390,15 +2419,15 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             
             // y1 dt1 y2 dt2 y3
 
-            params.insert(std::pair<std::string, modtor_param>("time",modtor_param(1000.)));
-            params.insert(std::pair<std::string, modtor_param>("varitime",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("list",modtor_param(std::vector<double>({0.,0.3,1,0.3,1.,0.3,0.}))));
-            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("segcurve",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("play",modtor_param(1)));
-            params.insert(std::pair<std::string, modtor_param>("loop",modtor_param(0)));
-            params.insert(std::pair<std::string, modtor_param>("count",modtor_param(-1.)));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("time",std::make_shared<modtor_param*>(new modtor_param(1000.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("varitime",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("list",std::make_shared<modtor_param*>(new modtor_param(std::vector<double>({0.,0.3,1,0.3,1.,0.3,0.})))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("mul",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("add",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("segcurve",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("play",std::make_shared<modtor_param*>(new modtor_param(1))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("loop",std::make_shared<modtor_param*>(new modtor_param(0))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("count",std::make_shared<modtor_param*>(new modtor_param(-1.))));
             
             mt_gen_time = std::mt19937(rd_dev());
             mt_rand_time = std::uniform_real_distribution<double>(-1.,1.);
@@ -2456,7 +2485,7 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         {
             phase = _phase;
             for (auto &p : params)
-                p.second.sync(phase);
+                (*p.second)->sync(phase);
         }
         
         int parse_segments(std::vector<double> list)
@@ -2501,15 +2530,15 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         
         void perform(double * values,int numframes,double deltatime) override
         {
-            modtor_param * p_time = params["time"].buffer_proc(numframes, deltatime);
-            modtor_param * p_varitime = params["varitime"].buffer_proc(numframes, deltatime);
-            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-            modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
-            modtor_param * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
-            modtor_param * p_play = params["play"].buffer_proc(numframes, deltatime);
-            modtor_param * p_loop = params["loop"].buffer_proc(numframes, deltatime);
-            modtor_param * p_list_ = &params["list"];
+            modtor_param * p_time = (*params["time"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_varitime = (*params["varitime"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = (*params["mul"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_add = (*params["add"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_count = (*params["count"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_segcurve = (*params["segcurve"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_play = (*params["play"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_loop = (*params["loop"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_list_ = (*params["list"]);
             
             modtor_param * p_freq = 0;
             
@@ -2518,10 +2547,10 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             bool freq_mode = params.find("freq") != params.end();
             
             if(freq_mode)
-                p_freq = params["freq"].buffer_proc(numframes, deltatime);
+                p_freq = (*params["freq"])->buffer_proc(numframes, deltatime);
 
             if(params.find("varifreq") != params.end())
-                p_varitime = params["varifreq"].buffer_proc(numframes, deltatime);
+                p_varitime = (*params["varifreq"])->buffer_proc(numframes, deltatime);
             
             for(int i=0; i<numframes; i++)
             {
@@ -2633,32 +2662,32 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         double get(double deltatime) override
         {
             // get all the parameters (check time or freq format)
-            double time = params["time"].get(deltatime);
-            double varitime = params["varitime"].get(deltatime);
+            double time = (*params["time"])->get(deltatime);
+            double varitime = (*params["varitime"])->get(deltatime);
 
             if(params.find("freq") != params.end())
-                time = 1000./ std::clamp(params["freq"].get(deltatime),0.001,10000000.);
+                time = 1000./ std::clamp((*params["freq"])->get(deltatime),0.001,10000000.);
 
             if(params.find("varifreq") != params.end())
-                varitime = params["varifreq"].get(deltatime);
+                varitime = (*params["varifreq"])->get(deltatime);
             
-            double mul = params["mul"].get(deltatime);
-            double add = params["add"].get(deltatime);
-            double segcurve = params["segcurve"].get(deltatime);
-            int play = params["play"].get(deltatime)>0;
-            int loop = params["loop"].get(deltatime)>0;
+            double mul = (*params["mul"])->get(deltatime);
+            double add = (*params["add"])->get(deltatime);
+            double segcurve = (*params["segcurve"])->get(deltatime);
+            int play = (*params["play"])->get(deltatime)>0;
+            int loop = (*params["loop"])->get(deltatime)>0;
             /** count special parameter: if > 0
                 • freq = 1./count
                 • deltatime = 1000.
             */
-            double count = params["count"].get(deltatime);
+            double count = (*params["count"])->get(deltatime);
             if(count >= 0.)
             {
                 time = (count > 0.01)? count * 1000 : 10. ;
                 deltatime = 1000.;
             }
             
-            p_list = params["list"].getlist();
+            p_list = (*params["list"])->getlist();
             if(m_list != p_list)
             {
                 m_list = p_list;
@@ -2747,12 +2776,12 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             
             // y1 dt1 y2 dt2 y3
 
-            params.insert(std::pair<std::string, modtor_param>("in",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("depth",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("mod",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("list",modtor_param(std::vector<double>({0.}))));
-            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("in",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("depth",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("mod",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("list",std::make_shared<modtor_param*>(new modtor_param(std::vector<double>({0.})))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("mul",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("add",std::make_shared<modtor_param*>(new modtor_param(0.))));
 
             
         };
@@ -2781,7 +2810,7 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         void sync(double _phase) override
         {
             for (auto &p : params)
-                p.second.sync(_phase);
+                (*p.second)->sync(_phase);
         }
         
         /**
@@ -2892,12 +2921,12 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         
         void perform(double * values,int numframes,double deltatime) override
         {
-            modtor_param * p_in = params["in"].buffer_proc(numframes, deltatime);
-            modtor_param * p_depth = params["depth"].buffer_proc(numframes, deltatime);
-            modtor_param * p_mod = params["mod"].buffer_proc(numframes, deltatime);
-            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-            modtor_param * p_list_ = &params["list"];
+            modtor_param * p_in = (*params["in"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_depth = (*params["depth"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_mod = (*params["mod"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = (*params["mul"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_add = (*params["add"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_list_ = (*params["list"]);
 
             modtor_param * p_time = 0;
             
@@ -2946,15 +2975,15 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         double get(double deltatime) override
         {
             // get all the parameters
-            double in = params["in"].get(deltatime);
+            double in = (*params["in"])->get(deltatime);
             
-            double depth = std::clamp(params["depth"].get(deltatime),0.,1.);
-            double mod = std::max(params["mod"].get(deltatime),0.);
+            double depth = std::clamp((*params["depth"])->get(deltatime),0.,1.);
+            double mod = std::max((*params["mod"])->get(deltatime),0.);
 
-            double mul = params["mul"].get(deltatime);
-            double add = params["add"].get(deltatime);
+            double mul = (*params["mul"])->get(deltatime);
+            double add = (*params["add"])->get(deltatime);
 
-            p_list = params["list"].getlist();
+            p_list = (*params["list"])->getlist();
             
             
             if(m_list != p_list)
@@ -2996,13 +3025,13 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             _scope = modtor_scope;
             _scope->touch(this);
             
-            params.insert(std::pair<std::string, modtor_param>("name",modtor_param("name")));
-            params.insert(std::pair<std::string, modtor_param>("in",modtor_param("input")));
-            params.insert(std::pair<std::string, modtor_param>("min",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("name",std::make_shared<modtor_param*>(new modtor_param("name"))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("in",std::make_shared<modtor_param*>(new modtor_param("input"))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("min",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("max",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("mul",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("add",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("curve",std::make_shared<modtor_param*>(new modtor_param(0.))));
             
             output_scale.setin_minmax(0., 1.);
             m_dict = dictobj_findregistered_retain (gensym("maxlang.input-internal.dict"));
@@ -3032,7 +3061,7 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         void sync(double _phase) override
         {
         	for (auto &p : params)
-                p.second.sync(_phase);
+                (*p.second)->sync(_phase);
         }
         
         void perform(double * values,int numframes,double deltatime) override
@@ -3044,13 +3073,13 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         double get(double deltatime) override
         {
             // get all the parameters
-            std::string name = params["in"].getstring();
+            std::string name = (*params["in"])->getstring();
             t_symbol * m_sym = gensym(name.c_str());
-            double min = params["min"].get(deltatime);
-            double max = params["max"].get(deltatime);
-            double curve = params["curve"].get(deltatime);
-            double add = params["add"].get(deltatime);
-            double mul = params["mul"].get(deltatime);
+            double min = (*params["min"])->get(deltatime);
+            double max = (*params["max"])->get(deltatime);
+            double curve = (*params["curve"])->get(deltatime);
+            double add = (*params["add"])->get(deltatime);
+            double mul = (*params["mul"])->get(deltatime);
             
             // get val, min and max from global dictionary maxlang.input-internal.dict
             double v, inmin, inmax;
@@ -3092,16 +3121,16 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             _scope = modtor_scope;
             _scope->touch(this);
             
-            params.insert(std::pair<std::string, modtor_param>("name",modtor_param("name")));
-            params.insert(std::pair<std::string, modtor_param>("id",modtor_param("var0")));
-            params.insert(std::pair<std::string, modtor_param>("init",modtor_param(0)));
-            params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("name",std::make_shared<modtor_param*>(new modtor_param("name"))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("id",std::make_shared<modtor_param*>(new modtor_param("var0"))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("init",std::make_shared<modtor_param*>(new modtor_param(0))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("max",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("mul",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("add",std::make_shared<modtor_param*>(new modtor_param(0.))));
             
             output_scale.setin_minmax(0., 1.);
             
-            std::string varname = params["id"].getstring();
+            std::string varname = (*params["id"])->getstring();
             m_variable_val =_scope->touch(varname);
             
             /*if ( (variables.find("id")) == params.end() )
@@ -3114,7 +3143,7 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
                 ret_param->
                 if(
                 params.erase(name); // TEST bug
-                params[name] = *value;
+                (*params[name] = *value;
                 //std::cout << value._type << std::endl;
             }
             //m_dict = dictobj_findregistered_retain (gensym("maxlang.variable-internal.dict"));
@@ -3142,7 +3171,7 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         void sync(double _phase) override
         {
             for (auto &p : params)
-                p.second.sync(_phase);
+                (*p.second)->sync(_phase);
         }
         
         void perform(double * values,int numframes,double deltatime) override
@@ -3154,15 +3183,15 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         double get(double deltatime) override
         {
             // get all the parameters
-            std::string varname = params["id"].getstring();
+            std::string varname = (*params["id"])->getstring();
             double val = this->getvariable(varname);
             
             
             m_variable_val = val ;
             
 
-            double add = params["add"].get(deltatime);
-            double mul = params["mul"].get(deltatime);
+            double add = (*params["add"])->get(deltatime);
+            double mul = (*params["mul"])->get(deltatime);
             
             return add+(m_variable_val*mul);
         }
@@ -3182,8 +3211,8 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             _scope = modtor_scope;
             _scope->touch(this);
             
-            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(0.)));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("a",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("b",std::make_shared<modtor_param*>(new modtor_param(0.))));
         };
         
         ~m_add()
@@ -3201,8 +3230,8 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         
         void perform(double * values,int numframes,double deltatime) override
         {
-            modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
-            modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
+            modtor_param * p_a = (*params["a"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_b = (*params["b"])->buffer_proc(numframes, deltatime);
 
             
             for(int i=0; i<numframes; i++)
@@ -3213,8 +3242,8 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         double get(double deltatime) override
         {
             // get all the parameters
-            double in1 = params["a"].get(deltatime);
-            double in2 = params["b"].get(deltatime);
+            double in1 = (*params["a"])->get(deltatime);
+            double in2 = (*params["b"])->get(deltatime);
             
             return in1 + in2;
         }
@@ -3232,8 +3261,8 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             _scope = modtor_scope;
             _scope->touch(this);
             
-            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(0)));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("a",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("b",std::make_shared<modtor_param*>(new modtor_param(0))));
         };
         
         ~m_minus()
@@ -3251,8 +3280,8 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         
         void perform(double * values,int numframes,double deltatime) override
         {
-            modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
-            modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
+            modtor_param * p_a = (*params["a"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_b = (*params["b"])->buffer_proc(numframes, deltatime);
 
             
             for(int i=0; i<numframes; i++)
@@ -3263,8 +3292,8 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         double get(double deltatime) override
         {
             // get all the parameters
-            double in1 = params["a"].get(deltatime);
-            double in2 = params["b"].get(deltatime);
+            double in1 = (*params["a"])->get(deltatime);
+            double in2 = (*params["b"])->get(deltatime);
             
             return in1 - in2;
         }
@@ -3282,8 +3311,8 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             _scope = modtor_scope;
             _scope->touch(this);
             
-            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(1)));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("a",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("b",std::make_shared<modtor_param*>(new modtor_param(1))));
         };
         
         ~m_mul()
@@ -3301,8 +3330,8 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         
         void perform(double * values,int numframes,double deltatime) override
         {
-            modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
-            modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
+            modtor_param * p_a = (*params["a"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_b = (*params["b"])->buffer_proc(numframes, deltatime);
 
             
             for(int i=0; i<numframes; i++)
@@ -3313,8 +3342,8 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         double get(double deltatime) override
         {
             // get all the parameters
-            double in1 = params["a"].get(deltatime);
-            double in2 = params["b"].get(deltatime);
+            double in1 = (*params["a"])->get(deltatime);
+            double in2 = (*params["b"])->get(deltatime);
             
             return in1 * in2;
         }
@@ -3332,8 +3361,8 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             _scope = modtor_scope;
             _scope->touch(this);
             
-            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(1)));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("a",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("b",std::make_shared<modtor_param*>(new modtor_param(1))));
         };
         
         ~m_div()
@@ -3351,8 +3380,8 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         
         void perform(double * values,int numframes,double deltatime) override
         {
-            modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
-            modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
+            modtor_param * p_a = (*params["a"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_b = (*params["b"])->buffer_proc(numframes, deltatime);
 
             
             for(int i=0; i<numframes; i++)
@@ -3363,8 +3392,8 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         double get(double deltatime) override
         {
             // get all the parameters
-            double in1 = params["a"].get(deltatime);
-            double in2 = params["b"].get(deltatime);
+            double in1 = (*params["a"])->get(deltatime);
+            double in2 = (*params["b"])->get(deltatime);
             
             return in1 / in2;
         }
@@ -3382,12 +3411,12 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             _scope = modtor_scope;
             _scope->touch(this);
 
-            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(1)));
-            params.insert(std::pair<std::string, modtor_param>("fade",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("fadecurve",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("a",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("b",std::make_shared<modtor_param*>(new modtor_param(1))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("fade",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("fadecurve",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("mul",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("add",std::make_shared<modtor_param*>(new modtor_param(0.))));
             
             segment_scale.setin_minmax(0., 1.);
             segment_scale.setout_min(0.);
@@ -3415,12 +3444,12 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         
         void perform(double * values,int numframes,double deltatime) override
         {
-            modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
-            modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
-            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-            modtor_param * p_fade = params["fade"].buffer_proc(numframes, deltatime);
-            modtor_param * p_fadecurve = params["fadecurve"].buffer_proc(numframes, deltatime);
+            modtor_param * p_a = (*params["a"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_b = (*params["b"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = (*params["mul"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_add = (*params["add"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_fade = (*params["fade"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_fadecurve = (*params["fadecurve"])->buffer_proc(numframes, deltatime);
             
             // sample curve
             double fadecurve = std::clamp(p_fadecurve->get_b(0),-1.04,1.04);
@@ -3451,12 +3480,12 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         double get(double deltatime) override
         {
             // get all the parameters
-            double in1 = params["a"].get(deltatime);
-            double in2 = params["b"].get(deltatime);
-            double mul = params["mul"].get(deltatime);
-            double add = params["add"].get(deltatime);
-            double fade = std::clamp(params["fade"].get(deltatime),0.,1.);
-            double fadecurve = std::clamp(params["fadecurve"].get(deltatime),-1.04,1.04);
+            double in1 = (*params["a"])->get(deltatime);
+            double in2 = (*params["b"])->get(deltatime);
+            double mul = (*params["mul"])->get(deltatime);
+            double add = (*params["add"])->get(deltatime);
+            double fade = std::clamp((*params["fade"])->get(deltatime),0.,1.);
+            double fadecurve = std::clamp((*params["fadecurve"])->get(deltatime),-1.04,1.04);
             
             // fadecurve = 0 : linear
             // fadecurve = 1 : tight (square)
@@ -3485,17 +3514,27 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
             _scope = modtor_scope;
             _scope->touch(this);
 
-            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("id",modtor_param("interpolate")));
-            params.insert(std::pair<std::string, modtor_param>("fadecurve",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("a",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("b",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("id",std::make_shared<modtor_param*>(new modtor_param("interpolate"))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("fadecurve",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("mul",std::make_shared<modtor_param*>(new modtor_param(1.))));
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("add",std::make_shared<modtor_param*>(new modtor_param(0.))));
             
             // create new modtor variable
-            modtor*  m = new m_variable(modtor_scope);
-            m->setparam("id",new modtor_param("interpolate"));
-            params.insert(std::pair<std::string, modtor_param>("fade",modtor_param(m)));
+            // FOR NOW uses input modulator
+            modtor*  m = new m_input(modtor_scope);
+            std::shared_ptr<modtor *> m_ptr = std::make_shared<modtor *>(m);
+            
+            m->setparam("in",std::make_shared<modtor_param*>(new modtor_param("maxalang.interpolate00")));
+            m->setparam("min",std::make_shared<modtor_param*>(new modtor_param(0.)));
+            m->setparam("max",std::make_shared<modtor_param*>(new modtor_param(1.)));
+            
+            std::shared_ptr<modtor_param *> p_ptr = std::make_shared<modtor_param *>(new modtor_param(m_ptr));
+
+    
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("fade",p_ptr));
+            
             
             segment_scale.setin_minmax(0., 1.);
             segment_scale.setout_min(0.);
@@ -3523,13 +3562,13 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         
         void perform(double * values,int numframes,double deltatime) override
         {
-            modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
-            modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
-            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-            modtor_param * p_fade = params["fade"].buffer_proc(numframes, deltatime);
+            modtor_param * p_a = (*params["a"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_b = (*params["b"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = (*params["mul"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_add = (*params["add"])->buffer_proc(numframes, deltatime);
+            modtor_param * p_fade = (*params["fade"])->buffer_proc(numframes, deltatime);
             
-            modtor_param * p_fadecurve = params["fadecurve"].buffer_proc(numframes, deltatime);
+            modtor_param * p_fadecurve = (*params["fadecurve"])->buffer_proc(numframes, deltatime);
             
             // sample curve
             double fadecurve = std::clamp(p_fadecurve->get_b(0),-1.04,1.04);
@@ -3560,13 +3599,13 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
         double get(double deltatime) override
         {
             // get all the parameters
-            double in1 = params["a"].get(deltatime);
-            double in2 = params["b"].get(deltatime);
-            double mul = params["mul"].get(deltatime);
-            double add = params["add"].get(deltatime);
-            double fade = std::clamp(params["fade"].get(deltatime),0.,1.);
+            double in1 = (*params["a"])->get(deltatime);
+            double in2 = (*params["b"])->get(deltatime);
+            double mul = (*params["mul"])->get(deltatime);
+            double add = (*params["add"])->get(deltatime);
+            double fade = std::clamp((*params["fade"])->get(deltatime),0.,1.);
             
-            double fadecurve = std::clamp(params["fadecurve"].get(deltatime),-1.04,1.04);
+            double fadecurve = std::clamp((*params["fadecurve"])->get(deltatime),-1.04,1.04);
             
             // fadecurve = 0 : linear
             // fadecurve = 1 : tight (square)
@@ -3586,132 +3625,133 @@ maxlang::modtor_param * merge_modtor_param(modtor_param *&paramA, modtor_param *
     
     
     
-    modtor_type_enum modtor_create_fromstring(std::string s, modtor *&m, scope * scope)
+std::shared_ptr<modtor*>  modtor_create_fromstring(std::string s, scope * scope, modtor_type_enum *&type_return)
     {
         /* operators */
+    modtor * m;
         if(s == "add" || s == "+")
         {
-            if(m) delete m;
             m = new m_add(scope);
-            return modtor_type_enum::add;
+            *type_return = modtor_type_enum::add;
         }
         
         if(s == "minus" || s == "-")
         {
-            if(m) delete m;
             m = new m_minus(scope);
-            return modtor_type_enum::minus;
+            *type_return = modtor_type_enum::minus;
         }
         
         if(s == "mul" || s == "*")
         {
-            if(m) delete m;
+            /* create m */
             m = new m_mul(scope);
-            return modtor_type_enum::mul;
+            *type_return = modtor_type_enum::mul;
         }
         
         if(s == "div" || s == "/")
         {
-            if(m) delete m;
+            /* create m */
             m = new m_div(scope);
-            return modtor_type_enum::div;
+            *type_return = modtor_type_enum::div;
         }
         
         /* modulators */
         if(s == "lfo")
         {
-            if(m) delete m;
+            /* create m */
             m = new m_lfo(scope);
-            return modtor_type_enum::lfo;
+            *type_return = modtor_type_enum::lfo;
         }
         if(s == "line")
         {
-            if(m) delete m;
+            /* create m */
             m = new m_line(scope);
-            return modtor_type_enum::line;
+            *type_return = modtor_type_enum::line;
         }
 
         if(s == "rand")
         {
-            if(m) delete m;
+            /* create m */
             m = new m_rand(scope);
-            return modtor_type_enum::rand;
+            *type_return = modtor_type_enum::rand;
         }
         if(s == "randi")
         {
-            if(m) delete m;
+            /* create m */
             m = new m_randi(scope);
-            return modtor_type_enum::randi;
+            *type_return = modtor_type_enum::randi;
         }
         if(s == "choice")
         {
-            if(m) delete m;
+            /* create m */
             m = new m_choice(scope);
-            return modtor_type_enum::choice;
+            *type_return = modtor_type_enum::choice;
         }
         if(s == "choicei")
         {
-            if(m) delete m;
+            /* create m */
             m = new m_choicei(scope);
-            return modtor_type_enum::choicei;
+            *type_return = modtor_type_enum::choicei;
         }
         if(s == "seq")
         {
-            if(m) delete m;
+            /* create m */
             m = new m_seq(scope);
-            return modtor_type_enum::seq;
+            *type_return = modtor_type_enum::seq;
         }
         if(s == "seqi")
         {
-            if(m) delete m;
+            /* create m */
             m = new m_seqi(scope);
-            return modtor_type_enum::seqi;
+            *type_return = modtor_type_enum::seqi;
         }
         if(s == "env")
         {
-            if(m) delete m;
+            /* create m */
             m = new m_env(scope);
-            return modtor_type_enum::env;
+            *type_return = modtor_type_enum::env;
         }
         
         if(s == "quantize")
         {
-            if(m) delete m;
+            /* create m */
             m = new m_quantize(scope);
-            return modtor_type_enum::quantize;
+            *type_return = modtor_type_enum::quantize;
         }
         
         if(s == "xfade")
         {
-            if(m) delete m;
+            /* create m */
             m = new m_xfade(scope);
-            return modtor_type_enum::xfade;
+            *type_return = modtor_type_enum::xfade;
         }
         
         
         if(s == "input")
         {
-            if(m) delete m;
+            /* create m */
             m = new m_input(scope);
-            return modtor_type_enum::input;
+            *type_return = modtor_type_enum::input;
         }
         
         if(s == "variable")
         {
-            if(m) delete m;
+            /* create m */
             m = new m_variable(scope);
-            return modtor_type_enum::variable;
+            *type_return = modtor_type_enum::variable;
         }
         
         
         if(s == "interpolate")
         {
-            if(m) delete m;
+            /* create m */
             m = new m_interpolate(scope);
-            return modtor_type_enum::interpolate;
+            *type_return = modtor_type_enum::interpolate;
         }
         
-        return modtor_type_enum::unknown;
+        *type_return = modtor_type_enum::unknown;
+        
+    return std::make_shared<modtor*>(m);
 
     }
 
