@@ -96,7 +96,7 @@ namespace maxlang {
         interpolate
     };
 
-std::shared_ptr<modtor*>  modtor_create_fromstring(std::string s, scope * scope, modtor_type_enum *&type_return);
+std::shared_ptr<modtor*>  modtor_create_fromstring(std::string s, scope * scope);
 
     class modtor_param
     {
@@ -177,7 +177,7 @@ std::shared_ptr<modtor*>  modtor_create_fromstring(std::string s, scope * scope,
     };
 
     
-std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*> paramA_ptr, std::shared_ptr<modtor_param*> paramB_ptr, scope * _scope);
+int merge_modtor_param(std::shared_ptr<modtor_param*> * paramA_ptr, std::shared_ptr<modtor_param*> * paramB_ptr, scope * _scope);
 
     
     class modtor {
@@ -191,6 +191,7 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
         std::seed_seq rd_seed;
         std::string modtor_refname;
         std::string modtor_classname;
+        modtor_type_enum modtor_class;
         
         scope * _scope;
         
@@ -311,10 +312,11 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
             return _scope->getvariable(varname);
         }
         
-        modtor * merge_modtor(std::shared_ptr<modtor*> modtor_B_ptr,maxlang::modtor *&returned_modtor, scope * _scope)
+        std::shared_ptr<modtor*> merge_modtor(std::shared_ptr<modtor*> *modtor_B_ptr, scope * _scope)
         {
             // check modtor A B equality by classname
-            modtor* modtor_B = *modtor_B_ptr;
+            modtor* modtor_B = **modtor_B_ptr;
+            std::shared_ptr<maxlang::modtor*> _modtor_ptr;
             
             if(this->modtor_classname == modtor_B->modtor_classname)
             {
@@ -348,14 +350,15 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
                     //tmp_modtor = merge_modtor_param(paramA,paramB,_scope);
                     
                     // WARNING
-                    std::shared_ptr<modtor_param*> p = merge_modtor_param(_paramA_ptr,_paramB_ptr,_scope);
-                    params[k] = p;
+                    int ret = merge_modtor_param(&_paramA_ptr,&_paramB_ptr,_scope);
+                    params[k] = _paramA_ptr;
                     
                 }
                 
                 //returned_modtor
+                _modtor_ptr = std::make_shared<modtor*>(this);
                 
-                return this;
+                return _modtor_ptr;
  
             }
             else
@@ -372,14 +375,14 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
                 /* create operator modtor */
                 modtor_type_enum * modtor_type_e ;
                 
-                std::shared_ptr<maxlang::modtor*> _modtor_ptr = maxlang::modtor_create_fromstring("interpolate",this->_scope,modtor_type_e);
+                _modtor_ptr = maxlang::modtor_create_fromstring("interpolate",this->_scope);
                 
                 (*_modtor_ptr)->setparam("a", paramA_ptr);
                 (*_modtor_ptr)->setparam("b", paramB_ptr);
 
                 
                 
-                return (*_modtor_ptr);
+                return _modtor_ptr;
                 
             }
             
@@ -583,6 +586,7 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
         m_lfo(scope * modtor_scope)
         {
             modtor_classname = "lfo";
+            modtor_class = modtor_type_enum::lfo;
             
             _scope = modtor_scope;
             _scope->touch(this);
@@ -822,6 +826,7 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
         {
             
             modtor_classname = "line";
+            modtor_class = modtor_type_enum::line;
             
             _scope = modtor_scope;
             _scope->touch(this);
@@ -1034,6 +1039,7 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
         {
             
             modtor_classname = "randi";
+            modtor_class = modtor_type_enum::randi;
             
             _scope = modtor_scope;
             _scope->touch(this);
@@ -1250,6 +1256,7 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
         {
             
             modtor_classname = "rand";
+            modtor_class = modtor_type_enum::rand;
             
             _scope = modtor_scope;
             _scope->touch(this);
@@ -1453,6 +1460,7 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
         {
             
             modtor_classname = "choice";
+            modtor_class = modtor_type_enum::choice;
             
             _scope = modtor_scope;
             _scope->touch(this);
@@ -1644,6 +1652,7 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
         {
             
             modtor_classname = "choicei";
+            modtor_class = modtor_type_enum::choicei;
             
             _scope = modtor_scope;
             _scope->touch(this);
@@ -1857,6 +1866,7 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
         {
             
             modtor_classname = "seqi";
+            modtor_class = modtor_type_enum::seqi;
             
             _scope = modtor_scope;
             _scope->touch(this);
@@ -2150,6 +2160,7 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
         {
             
             modtor_classname = "seq";
+            modtor_class = modtor_type_enum::seq;
             
             _scope = modtor_scope;
             _scope->touch(this);
@@ -2413,6 +2424,7 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
         {
             
             modtor_classname = "env";
+            modtor_class = modtor_type_enum::env;
             
             _scope = modtor_scope;
             _scope->touch(this);
@@ -2770,6 +2782,7 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
         {
             
             modtor_classname = "quantize";
+            modtor_class = modtor_type_enum::quantize;
             
             _scope = modtor_scope;
             _scope->touch(this);
@@ -3021,6 +3034,7 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
         {
             
             modtor_classname = "input";
+            modtor_class = modtor_type_enum::input;
             
             _scope = modtor_scope;
             _scope->touch(this);
@@ -3117,6 +3131,7 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
         {
             
             modtor_classname = "variable";
+            modtor_class = modtor_type_enum::variable;
             
             _scope = modtor_scope;
             _scope->touch(this);
@@ -3207,6 +3222,7 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
         {
             
             modtor_classname = "add";
+            modtor_class = modtor_type_enum::add;
             
             _scope = modtor_scope;
             _scope->touch(this);
@@ -3257,6 +3273,7 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
         {
             
             modtor_classname = "minus";
+            modtor_class = modtor_type_enum::minus;
             
             _scope = modtor_scope;
             _scope->touch(this);
@@ -3307,6 +3324,7 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
         {
             
             modtor_classname = "mul";
+            modtor_class = modtor_type_enum::mul;
             
             _scope = modtor_scope;
             _scope->touch(this);
@@ -3357,6 +3375,7 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
         {
             
             modtor_classname = "div";
+            modtor_class = modtor_type_enum::div;
             
             _scope = modtor_scope;
             _scope->touch(this);
@@ -3407,6 +3426,7 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
         {
             
             modtor_classname = "xfade";
+            modtor_class = modtor_type_enum::xfade;
             
             _scope = modtor_scope;
             _scope->touch(this);
@@ -3510,7 +3530,8 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
         {
             
             modtor_classname = "interpolate";
-            
+            modtor_class = modtor_type_enum::interpolate;
+
             _scope = modtor_scope;
             _scope->touch(this);
 
@@ -3526,7 +3547,7 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
             modtor*  m = new m_input(modtor_scope);
             std::shared_ptr<modtor *> m_ptr = std::make_shared<modtor *>(m);
             
-            m->setparam("in",std::make_shared<modtor_param*>(new modtor_param("maxalang.interpolate00")));
+            m->setparam("in",std::make_shared<modtor_param*>(new modtor_param("maxlang.interpolate00")));
             m->setparam("min",std::make_shared<modtor_param*>(new modtor_param(0.)));
             m->setparam("max",std::make_shared<modtor_param*>(new modtor_param(1.)));
             
@@ -3625,133 +3646,74 @@ std::shared_ptr<modtor_param *> merge_modtor_param(std::shared_ptr<modtor_param*
     
     
     
-std::shared_ptr<modtor*>  modtor_create_fromstring(std::string s, scope * scope, modtor_type_enum *&type_return)
+std::shared_ptr<modtor*>  modtor_create_fromstring(std::string s, scope * scope)
     {
-        /* operators */
-    modtor * m;
+        
+    modtor * m = nullptr;
+    
+    /* operators */
         if(s == "add" || s == "+")
-        {
             m = new m_add(scope);
-            *type_return = modtor_type_enum::add;
-        }
         
         if(s == "minus" || s == "-")
-        {
             m = new m_minus(scope);
-            *type_return = modtor_type_enum::minus;
-        }
+        
         
         if(s == "mul" || s == "*")
-        {
-            /* create m */
             m = new m_mul(scope);
-            *type_return = modtor_type_enum::mul;
-        }
+
         
         if(s == "div" || s == "/")
-        {
-            /* create m */
             m = new m_div(scope);
-            *type_return = modtor_type_enum::div;
-        }
+
         
         /* modulators */
         if(s == "lfo")
-        {
-            /* create m */
             m = new m_lfo(scope);
-            *type_return = modtor_type_enum::lfo;
-        }
+    
         if(s == "line")
-        {
-            /* create m */
             m = new m_line(scope);
-            *type_return = modtor_type_enum::line;
-        }
 
         if(s == "rand")
-        {
-            /* create m */
             m = new m_rand(scope);
-            *type_return = modtor_type_enum::rand;
-        }
+
         if(s == "randi")
-        {
-            /* create m */
             m = new m_randi(scope);
-            *type_return = modtor_type_enum::randi;
-        }
+
         if(s == "choice")
-        {
-            /* create m */
             m = new m_choice(scope);
-            *type_return = modtor_type_enum::choice;
-        }
+
         if(s == "choicei")
-        {
-            /* create m */
             m = new m_choicei(scope);
-            *type_return = modtor_type_enum::choicei;
-        }
+
         if(s == "seq")
-        {
-            /* create m */
             m = new m_seq(scope);
-            *type_return = modtor_type_enum::seq;
-        }
+
         if(s == "seqi")
-        {
-            /* create m */
             m = new m_seqi(scope);
-            *type_return = modtor_type_enum::seqi;
-        }
+
         if(s == "env")
-        {
-            /* create m */
             m = new m_env(scope);
-            *type_return = modtor_type_enum::env;
-        }
         
         if(s == "quantize")
-        {
-            /* create m */
             m = new m_quantize(scope);
-            *type_return = modtor_type_enum::quantize;
-        }
-        
+
         if(s == "xfade")
-        {
-            /* create m */
             m = new m_xfade(scope);
-            *type_return = modtor_type_enum::xfade;
-        }
-        
-        
+
         if(s == "input")
-        {
-            /* create m */
             m = new m_input(scope);
-            *type_return = modtor_type_enum::input;
-        }
-        
+
         if(s == "variable")
-        {
-            /* create m */
             m = new m_variable(scope);
-            *type_return = modtor_type_enum::variable;
-        }
-        
-        
+
         if(s == "interpolate")
-        {
-            /* create m */
             m = new m_interpolate(scope);
-            *type_return = modtor_type_enum::interpolate;
-        }
-        
-        *type_return = modtor_type_enum::unknown;
-        
-    return std::make_shared<modtor*>(m);
+
+    if(m)
+        return std::make_shared<modtor*>(m);
+    else
+        return nullptr;
 
     }
 

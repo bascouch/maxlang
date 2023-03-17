@@ -86,7 +86,15 @@ public:
         modtor_sources.resize(n_chans);
         modtor_sources_param.resize(n_chans);
         
+       
+        
         _scope = new maxlang::scope;
+        
+        for(int i=0; i<n_chans; i++)
+        {
+            modtor_vector[i] = maxlang::modtor_create_fromstring("add",this->_scope);
+            modtor_vector_destination[i] = maxlang::modtor_create_fromstring("add",this->_scope);
+         }
         
         std::map<std::string,std::shared_ptr<maxlang::modtor*>> modtor_ref;
         named_modtor_ref_vector.resize(n_chans, modtor_ref);
@@ -155,6 +163,7 @@ public:
         std::vector<std::shared_ptr<maxlang::modtor*>> modtor_ref;
         std::vector<std::shared_ptr<maxlang::modtor*>> modtor_ref_current;
         modtor_ref_current.resize(n_chans);
+
         
         std::string modtor_name;
         
@@ -348,6 +357,7 @@ public:
             systhread_mutex_lock(mutx);
             if(_scope)
             {
+                object_post(&m_ob, "set variable: parsed %s %f",name.c_str(),value);
                 _scope->setvariable(name, value);
                     
             }
@@ -442,7 +452,13 @@ public:
                         maxlang::print_node( *root );
                     systhread_mutex_lock(mutx);
 
-                    int ret = maxlang::modtree_make(*root, modtor_vector[i], &m_ob, _scope);
+                    /* dispose old modtree if any */
+                    if(*modtor_vector[i])
+                    {
+                        modtor_vector_destination[i] = modtor_vector[i];
+                    }
+                    
+                    int ret = maxlang::modtree_make(*root, &modtor_vector[i], &m_ob, _scope);
                     systhread_mutex_unlock(mutx);
                     
                     if(!ret)
@@ -525,7 +541,7 @@ public:
                         maxlang::print_node( *root );
                     systhread_mutex_lock(mutx);
 
-                    int ret = maxlang::modtree_make(*root, modtor_vector_destination[i], &m_ob, _scope);
+                    int ret = maxlang::modtree_make(*root, &modtor_vector_destination[i], &m_ob, _scope);
                     systhread_mutex_unlock(mutx);
                     
                     if(!ret)
@@ -538,14 +554,16 @@ public:
                         // ALL GOOD
                         // merge with current graph
                         systhread_mutex_lock(mutx);
-                        modtor_vector[i] = merge_modtor(modtor_vector[i],modtor_vector_destination[i],_scope);
+                        modtor_vector[i] = merge_modtor(
+                                                        &modtor_vector[i],
+                                                        &modtor_vector_destination[i],
+                                                        _scope);
                         systhread_mutex_unlock(mutx);
 
                         
                         // &É"'(§È!ÇÀÀÇ!È§('"É&&É"'(§È!
                         
                         //
-                        named_modtor_ref_vector[i].clear();
                         (*modtor_vector[i])->traverse_for_ref(named_modtor_ref_vector[i]);
                     }
                 }
@@ -613,7 +631,7 @@ public:
                         maxlang::print_node( *root );
                     systhread_mutex_lock(mutx);
                     
-                    int ret = maxlang::valtree_make(*root, modtor_ref_ptr[i], arg_name ,&m_ob, _scope);
+                    int ret = maxlang::valtree_make(*root, &modtor_ref_ptr[i], arg_name ,&m_ob, _scope);
                     systhread_mutex_unlock(mutx);
                     
                     if(!ret)
@@ -647,17 +665,19 @@ public:
         t_symbol * param_key = gensym("param");
         
         std::shared_ptr<maxlang::modtor*> _modtor_ptr;
+        maxlang::modtor* _modtor;
         
         if(dictionary_hasentry(d,modtor_key) )
         {
             const char * modtor_type;
             dictionary_getstring(d,modtor_key, &modtor_type);
             /* create operator modtor */
-            maxlang::modtor_type_enum * modtor_type_e ;
+            maxlang::modtor_type_enum modtor_type_e ;
             
-            _modtor_ptr = maxlang::modtor_create_fromstring(modtor_type,_scope,modtor_type_e);
+            _modtor_ptr = maxlang::modtor_create_fromstring(modtor_type,_scope);
             
-            if(*modtor_type_e == maxlang::modtor_type_enum::unknown)
+            
+            if((_modtor = *_modtor_ptr) == nullptr || _modtor->modtor_class == maxlang::modtor_type_enum::unknown)
             {
                 object_error(&m_ob, "unknown modtor type %s",modtor_type);
                 return NULL;
@@ -783,7 +803,7 @@ public:
                 {
                     if(modtor_vector[i])
                         modtor_vector[i].reset();
-                    modtor_vector[i].swap(modtor_ptr);
+                    modtor_vector[i] = modtor_ptr;
                     named_modtor_ref_vector[i].clear();
                     (*modtor_vector[i])->traverse_for_ref(named_modtor_ref_vector[i]);
                     return;
