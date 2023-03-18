@@ -40,6 +40,76 @@
 		"assistshowspatchername" : 0,
 		"boxes" : [ 			{
 				"box" : 				{
+					"id" : "obj-14",
+					"maxclass" : "newobj",
+					"numinlets" : 2,
+					"numoutlets" : 1,
+					"outlettype" : [ "float" ],
+					"patching_rect" : [ 434.0, 455.0, 39.0, 22.0 ],
+					"text" : "/ 100."
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"activeslidercolor" : [ 0.368627450980392, 0.764705882352941, 0.329411764705882, 1.0 ],
+					"appearance" : 2,
+					"fontname" : "Ableton Sans Medium Regular",
+					"fontsize" : 18.0,
+					"id" : "obj-13",
+					"maxclass" : "live.numbox",
+					"numinlets" : 1,
+					"numoutlets" : 2,
+					"outlettype" : [ "", "float" ],
+					"parameter_enable" : 1,
+					"patching_rect" : [ 434.0, 406.0, 185.0, 25.0 ],
+					"saved_attribute_attributes" : 					{
+						"activeslidercolor" : 						{
+							"expression" : ""
+						}
+,
+						"valueof" : 						{
+							"parameter_longname" : "live.numbox",
+							"parameter_mmax" : 100.0,
+							"parameter_shortname" : "live.numbox",
+							"parameter_type" : 0,
+							"parameter_unitstyle" : 5
+						}
+
+					}
+,
+					"varname" : "live.numbox"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"format" : 6,
+					"id" : "obj-32",
+					"maxclass" : "flonum",
+					"numinlets" : 1,
+					"numoutlets" : 2,
+					"outlettype" : [ "", "bang" ],
+					"parameter_enable" : 0,
+					"patching_rect" : [ 434.0, 489.0, 50.0, 22.0 ]
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"color" : [ 0.0, 0.734265565872192, 0.010627806186676, 1.0 ],
+					"id" : "obj-9",
+					"linecount" : 3,
+					"maxclass" : "newobj",
+					"numinlets" : 1,
+					"numoutlets" : 0,
+					"patching_rect" : [ 434.0, 521.0, 189.0, 49.0 ],
+					"text" : "maxlang.input maxlang.interpolate00 0 @min 0 @max 1"
+				}
+
+			}
+, 			{
+				"box" : 				{
 					"id" : "obj-5",
 					"maxclass" : "newobj",
 					"numinlets" : 1,
@@ -98,13 +168,13 @@
 								"box" : 								{
 									"fontsize" : 8.619929652002323,
 									"id" : "obj-32",
-									"linecount" : 3,
+									"linecount" : 6,
 									"maxclass" : "message",
 									"numinlets" : 2,
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
 									"patching_rect" : [ 50.0, 100.0, 474.0, 105.0 ],
-									"text" : "0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0."
+									"text" : "0. 0. 0. 0. 0. 0. 0.970784 1.975411 3.01506 4.090952 5.204351 6.356564 7.548944 8.782892 10.06 11.381338 12.748887 14.16411 15.628669 17.144284 18.712735 20.335864 22.015577 23.753846 25.552713 27.414291 29.340764 31.334397 33.39753 35.532585 37.742071 40.028582 42.394802 44.843512 47.377586 50. 52.622414 55.156488 57.605198 59.971418 62.257929 64.467415 66.60247 68.665603 70.659236 72.585709 74.447287 76.246154 77.984423 79.664136 81.287265 82.855716 84.371331 85.83589 87.251113 88.618662 89.940143 91.217108 92.451056 93.643436 94.795649 95.909048 96.98494 98.024589 99.029216 100. 99.029216 98.024589 96.98494 95.909048 94.795649 93.643436 92.451056 91.217108 89.940143 88.618662 87.251113 85.83589 84.371331 82.855716 81.287265 79.664136 77.984423 76.246154 74.447287 72.585709 70.659236 68.665603 66.60247 64.467415 62.257929 59.971418 57.605198 55.156488 52.622414 50. 47.377586 44.843512 42.394802 40.028582 37.742071"
 								}
 
 							}
@@ -3350,6 +3420,20 @@
 			}
 , 			{
 				"patchline" : 				{
+					"destination" : [ "obj-14", 0 ],
+					"source" : [ "obj-13", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-32", 0 ],
+					"source" : [ "obj-14", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
 					"destination" : [ "obj-34", 0 ],
 					"source" : [ "obj-19", 0 ]
 				}
@@ -3448,6 +3532,13 @@
 					"destination" : [ "obj-34", 0 ],
 					"order" : 0,
 					"source" : [ "obj-31", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-9", 0 ],
+					"source" : [ "obj-32", 0 ]
 				}
 
 			}
@@ -3555,6 +3646,20 @@
 
 			}
  ],
+		"parameters" : 		{
+			"obj-13" : [ "live.numbox", "live.numbox", 0 ],
+			"parameterbanks" : 			{
+				"0" : 				{
+					"index" : 0,
+					"name" : "",
+					"parameters" : [ "-", "-", "-", "-", "-", "-", "-", "-" ]
+				}
+
+			}
+,
+			"inherited_shortname" : 1
+		}
+,
 		"dependency_cache" : [ 			{
 				"name" : "ambimonitor.mxo",
 				"type" : "iLaX"

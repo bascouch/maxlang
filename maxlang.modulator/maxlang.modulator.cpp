@@ -33,6 +33,7 @@ public:
     int use_system_clock=0;
     
     int n_chans = 1;
+    bool const_mode = true;
     t_atom * outlist;
     t_atom * outstring;
     double * lastval;
@@ -92,8 +93,8 @@ public:
         
         for(int i=0; i<n_chans; i++)
         {
-            modtor_vector[i] = maxlang::modtor_create_fromstring("add",this->_scope);
-            modtor_vector_destination[i] = maxlang::modtor_create_fromstring("add",this->_scope);
+            modtor_vector[i] = maxlang::modtor_create_fromstring("const",this->_scope);
+            modtor_vector_destination[i] = maxlang::modtor_create_fromstring("const",this->_scope);
          }
         
         std::map<std::string,std::shared_ptr<maxlang::modtor*>> modtor_ref;
@@ -400,6 +401,25 @@ public:
         if(ac>=1 && av[0].a_type == A_LONG)
         {
             m_verbose = av[0].a_w.w_long;
+        }
+    }
+    
+    void floatin(long inlet,double in)
+    {
+        for(int i=0; i< n_chans; i++)
+        {
+            if(modtor_vector[i] && (*modtor_vector[i])->modtor_classname == "const")
+            {
+                (*modtor_vector[i])->setparam("val", std::make_shared<maxlang::modtor_param*>(new maxlang::modtor_param(in)));
+            }
+            else
+            {
+                modtor_create_fromstring("const",_scope);
+                std::shared_ptr<maxlang::modtor*> p = modtor_create_fromstring("const",_scope) ;
+                modtor_vector[i].swap(p);
+                (*modtor_vector[i])->setparam("val", std::make_shared<maxlang::modtor_param*>(new maxlang::modtor_param(in)));
+            }
+                
         }
     }
     
@@ -891,6 +911,7 @@ C74_EXPORT int main(void) {
     REGISTER_METHOD_GIMME(maxlang_modulator, variable);
     REGISTER_METHOD_GIMME(maxlang_modulator, sync);
     REGISTER_METHOD_GIMME(maxlang_modulator, dictionary);
+    REGISTER_METHOD_FLOAT(maxlang_modulator, floatin);
     REGISTER_METHOD(maxlang_modulator, clear);
 	
 

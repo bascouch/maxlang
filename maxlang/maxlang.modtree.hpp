@@ -93,7 +93,8 @@ namespace maxlang {
         div,
         xfade,
         variable,
-        interpolate
+        interpolate,
+        constant
     };
 
 std::shared_ptr<modtor*>  modtor_create_fromstring(std::string s, scope * scope);
@@ -3212,7 +3213,52 @@ int merge_modtor_param(std::shared_ptr<modtor_param*> * paramA_ptr, std::shared_
         }
     };
 
-
+    class m_const : public modtor {
+        
+    public:
+        
+        m_const(scope * modtor_scope)
+        {
+            
+            modtor_classname = "const";
+            modtor_class = modtor_type_enum::constant;
+            
+            _scope = modtor_scope;
+            _scope->touch(this);
+            
+            params.insert(std::pair<std::string, std::shared_ptr<modtor_param*>>("val",std::make_shared<modtor_param*>(new modtor_param(0.))));
+            
+        };
+        
+        ~m_const()
+        {
+            params.clear();
+        }
+        
+        void seed(std::string seed_str) override
+        {
+        }
+        
+        void sync(double _phase) override
+        {
+        }
+        
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            modtor_param * p_a = (*params["val"])->buffer_proc(numframes, deltatime);
+            
+            for(int i=0; i<numframes; i++)
+                values[i] = p_a->get_b(i);
+        }
+        
+        double get(double deltatime) override
+        {
+            // get all the parameters
+            double in1 = (*params["val"])->get(deltatime);
+            
+            return in1;
+        }
+    };
 
     class m_add : public modtor {
         
@@ -3665,7 +3711,9 @@ std::shared_ptr<modtor*>  modtor_create_fromstring(std::string s, scope * scope)
         
         if(s == "div" || s == "/")
             m = new m_div(scope);
-
+            
+        if(s == "const")
+            m = new m_const(scope);
         
         /* modulators */
         if(s == "lfo")
