@@ -399,9 +399,8 @@ int modtree_parse_modtor_def(const pegtl::parse_tree::node& n, std::shared_ptr<m
     
 
 // merge modtor params
-int merge_modtor_param(std::shared_ptr<modtor_param*> *paramA_ptr, std::shared_ptr<modtor_param*> *paramB_ptr, scope * _scope)
+std::shared_ptr<modtor_param*> merge_modtor_param(std::shared_ptr<modtor_param*> *paramA_ptr, std::shared_ptr<modtor_param*> *paramB_ptr, scope * _scope)
     {
-        maxlang::modtor * returned_modtor = NULL;
         maxlang::modtor_param* paramA = **paramA_ptr;
         maxlang::modtor_param* paramB = **paramB_ptr;
         //enum modtor_param_type { e_int, e_double, e_list, e_modtor, e_string };
@@ -411,23 +410,28 @@ int merge_modtor_param(std::shared_ptr<modtor_param*> *paramA_ptr, std::shared_p
             std::shared_ptr<modtor*>  _modtorA_ptr = paramA->getmodtor();
             maxlang::modtor * _modtorA = *_modtorA_ptr;
             std::shared_ptr<modtor*>  _modtorB_ptr = paramB->getmodtor();
-            maxlang::modtor * _modtor_returned;
+            maxlang::modtor_param * _modtor_param_returned;
             _modtorA->merge_modtor(&_modtorB_ptr, _scope);
-            return 1;
+            _modtor_param_returned = new maxlang::modtor_param(std::make_shared<modtor*>(_modtorA));
+            
+            std::shared_ptr<maxlang::modtor_param*> returned_param  = std::make_shared<maxlang::modtor_param*>(_modtor_param_returned);
+            
+            
+            return returned_param;
         }
         else
         {
             // RUDE
             /* create operator modtor */
             std::shared_ptr<modtor*> new_modtor_ptr = modtor_create_fromstring("interpolate",_scope);
-            returned_modtor->setparam("a", *paramA_ptr);
-            returned_modtor->setparam("b", *paramB_ptr);
+            (*new_modtor_ptr)->setparam("a", *paramA_ptr);
+            (*new_modtor_ptr)->setparam("b", *paramB_ptr);
             
             
             std::shared_ptr<maxlang::modtor_param*> returned_param  = std::make_shared<maxlang::modtor_param*>(new modtor_param(new_modtor_ptr));
             
             
-            return 1;
+            return returned_param;
         }
         
         

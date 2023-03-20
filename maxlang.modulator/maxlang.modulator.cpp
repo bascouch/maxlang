@@ -73,7 +73,7 @@ public:
             {
                 case A_LONG:
                     v = av[0].a_w.w_long;
-                    n_chans = (v > 1)? v : 1;
+                    n_chans = (v > 1)? (long)v : 1;
                     break;
                 case A_FLOAT:
                     break;
@@ -404,8 +404,10 @@ public:
         }
     }
     
-    void floatin(long inlet,double in)
+    void floatin(long inlet, double in)
     {
+        post("bang\n");
+        
         for(int i=0; i< n_chans; i++)
         {
             if(modtor_vector[i] && (*modtor_vector[i])->modtor_classname == "const")

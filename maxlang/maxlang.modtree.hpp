@@ -178,7 +178,7 @@ std::shared_ptr<modtor*>  modtor_create_fromstring(std::string s, scope * scope)
     };
 
     
-int merge_modtor_param(std::shared_ptr<modtor_param*> * paramA_ptr, std::shared_ptr<modtor_param*> * paramB_ptr, scope * _scope);
+std::shared_ptr<modtor_param*> merge_modtor_param(std::shared_ptr<modtor_param*> *paramA_ptr, std::shared_ptr<modtor_param*> * paramB_ptr, scope * _scope);
 
     
     class modtor {
@@ -329,14 +329,19 @@ int merge_modtor_param(std::shared_ptr<modtor_param*> * paramA_ptr, std::shared_
                 for (std::map<std::string, std::shared_ptr<modtor_param*>>::iterator it=params.begin(); it!=params.end(); ++it)
                 {
                     std::shared_ptr<modtor_param*> _paramA_ptr = it->second;
-                    std::shared_ptr<modtor_param*> _paramB_ptr = modtor_B->params[it->first];
-                    modtor_param* _paramA = *_paramA_ptr;
-                    modtor_param* _paramB = *_paramB_ptr;
-                    if(_paramA->_type == e_double && _paramA->_value_d != _paramB->_value_d)
+                    /* if param from A is in modtor B def -> do add param to interpolation plan*/
+                    if( modtor_B->params.count(it->first))
                     {
+                        std::shared_ptr<modtor_param*> _paramB_ptr = modtor_B->params[it->first];
+                        modtor_param* _paramA = *_paramA_ptr;
+                        modtor_param* _paramB = *_paramB_ptr;
+                        if(_paramA->_type == e_double && _paramA->_value_d != _paramB->_value_d)
+                        {
 
-                        keysB.push_back(it->first);
+                            keysB.push_back(it->first);
+                        }
                     }
+                    
                     
                 }
                 
@@ -348,11 +353,11 @@ int merge_modtor_param(std::shared_ptr<modtor_param*> * paramA_ptr, std::shared_
                     modtor_param * paramA = *_paramA_ptr;
                     modtor_param * paramB = *_paramB_ptr;
                     
-                    //tmp_modtor = merge_modtor_param(paramA,paramB,_scope);
                     
                     // WARNING
-                    int ret = merge_modtor_param(&_paramA_ptr,&_paramB_ptr,_scope);
-                    params[k] = _paramA_ptr;
+                    std::shared_ptr<modtor_param*> ret;
+                    ret = merge_modtor_param(&_paramA_ptr,&_paramB_ptr,_scope);
+                    params[k] = ret;
                     
                 }
                 
