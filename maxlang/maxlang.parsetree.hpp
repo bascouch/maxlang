@@ -42,7 +42,7 @@ std::shared_ptr<modtor*> merge_modtor( std::shared_ptr<modtor*> *_modtorA_ptr, s
         
         /* create operator modtor */
         std::shared_ptr<modtor *> modtor_ret = modtor_create_fromstring(op_str,_scope);
-        *_modtor_ptr = modtor_ret;
+        _modtor_ptr = &modtor_ret;
         
         /* parse the operator arguments and make modtor_param*/
         std::shared_ptr<maxlang::modtor_param *> value_a, value_b;
@@ -166,7 +166,7 @@ int modtree_parse_modtor_def(const pegtl::parse_tree::node& n, std::shared_ptr<m
             std::string name = type_node->string();
             /// BUG
             std::shared_ptr<modtor *> m = modtor_create_fromstring(name,_scope);
-            *_modtor_ptr = m;
+            _modtor_ptr = &m;
             
             if(*m == nullptr)
             {

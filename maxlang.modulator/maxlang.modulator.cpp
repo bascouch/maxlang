@@ -431,19 +431,21 @@ public:
         std::string name;
         std::string atoms;
         bool atoms_set = false;
+        bool double_param = false;
+        double double_value = 0;
         
         /* if only float or long parameter do a parse const*/
         if (ac==1)
         {
-            double value;
+            
             std::string value_str;
             switch(av[0].a_type)
             {
                 case A_LONG:
-                    value = av[0].a_w.w_long;
+                    double_value = av[0].a_w.w_long;
                     break;
                 case A_FLOAT:
-                    value = av[0].a_w.w_float;
+                    double_value = av[0].a_w.w_float;
                     break;
                 case A_SYM:
                     try
@@ -452,7 +454,7 @@ public:
                         //object_post(&m_ob, "parsing float from %s",av[0].a_w.w_sym->s_name);
                         std::string::size_type sz;     // alias of size_t
 
-                        value = std::stod (value_str,&sz);
+                        double_value = std::stod (value_str,&sz);
                         
                     }
                     catch (std::invalid_argument const& ex)
@@ -464,8 +466,9 @@ public:
                     break;
             }
             
-            atoms = "const( val=" + std::to_string(value) + " )";
+            atoms = "const( val=" + std::to_string(double_value) + " )";
             atoms_set = true;
+            double_param = true;
             //object_post(&m_ob, "parsing %s",atoms.c_str());
             
         }
@@ -547,7 +550,10 @@ public:
                 }
                 
                 atom_setlong(outstring,i);
-                atom_setsym(outstring+1,gensym(modtor_sources[i].c_str()));
+                if(double_param)
+                    atom_setfloat(outstring+1,double_value);
+                else
+                    atom_setsym(outstring+1,gensym(modtor_sources[i].c_str()));
                 outlet_list(m_outlets[2], 0L, 2,outstring);
                 
                 
