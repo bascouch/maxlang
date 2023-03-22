@@ -35,6 +35,7 @@ public:
     int n_chans = 1;
     bool const_mode = true;
     t_atom * outlist;
+    t_atom * outsample;
     t_atom * outstring;
     double * lastval;
     
@@ -57,14 +58,14 @@ public:
     void *m_clock;
     double m_interval;
     
-    int m_verbose=0;
+    int m_verbose=1;
     
     
     // functions
     
     
 	maxlang_modulator(t_symbol * sym, long ac, t_atom * av) {
-		setupIO(1, 3); // inlets / outlets
+		setupIO(1, 4); // inlets / outlets
         long v;
         
         // num channels
@@ -101,6 +102,7 @@ public:
         named_modtor_ref_vector.resize(n_chans, modtor_ref);
         
         outlist = new t_atom[n_chans];
+        outsample= new t_atom[4096];
         outstring = new t_atom[2];
         lastval = new double[n_chans];
         
@@ -428,40 +430,84 @@ public:
     void parse(long inlet, t_symbol * s, long ac, t_atom * av) {
         std::string name;
         std::string atoms;
+        bool atoms_set = false;
         
-        for(int i=0; i<ac; i++)
-            switch(av[i].a_type)
+        /* if only float or long parameter do a parse const*/
+        if (ac==1)
+        {
+            double value;
+            std::string value_str;
+            switch(av[0].a_type)
             {
-                case A_SYM:
-                    atoms += (av[i].a_w.w_sym->s_name);
-                    atoms += " ";
-                    break;
                 case A_LONG:
-                    atoms += std::to_string(av[i].a_w.w_long);
-                    atoms += " ";
+                    value = av[0].a_w.w_long;
                     break;
                 case A_FLOAT:
-                    atoms += std::to_string(av[i].a_w.w_float);
-                    atoms += " ";
+                    value = av[0].a_w.w_float;
+                    break;
+                case A_SYM:
+                    try
+                    {
+                        std::string value_str (av[0].a_w.w_sym->s_name);
+                        //object_post(&m_ob, "parsing float from %s",av[0].a_w.w_sym->s_name);
+                        std::string::size_type sz;     // alias of size_t
+
+                        value = std::stod (value_str,&sz);
+                        
+                    }
+                    catch (std::invalid_argument const& ex)
+                    {
+                        //object_error(&m_ob, "single float parsing %s in %s",ex.what(),atoms.c_str());
+                        //return;
+                    }
+                    
                     break;
             }
+            
+            atoms = "const( val=" + std::to_string(value) + " )";
+            atoms_set = true;
+            //object_post(&m_ob, "parsing %s",atoms.c_str());
+            
+        }
+        
+        if(!atoms_set)
+            for(int i=0; i<ac; i++)
+                switch(av[i].a_type)
+                {
+                    case A_SYM:
+                        atoms += (av[i].a_w.w_sym->s_name);
+                        atoms += " ";
+                        break;
+                    case A_LONG:
+                        atoms += std::to_string(av[i].a_w.w_long);
+                        atoms += " ";
+                        break;
+                    case A_FLOAT:
+                        atoms += std::to_string(av[i].a_w.w_float);
+                        atoms += " ";
+                        break;
+                }
+            
+            
         if(m_verbose)
             object_post(&m_ob, "parsing %s",atoms.c_str());
         
-        // macro replace
+        /* do macro replace*/
         
-        try {
-            if(!maxlang::macro_parse_and_apply(atoms, n_chans, modtor_sources, &m_ob))
-            {
-                object_error(&m_ob, "macro parse and apply error in %s",atoms.c_str());
+        {
+            try {
+                if(!maxlang::macro_parse_and_apply(atoms, n_chans, modtor_sources, &m_ob))
+                {
+                    object_error(&m_ob, "macro parse and apply error in %s",atoms.c_str());
+                    return;
+                }
+                    
+            }
+            catch( const std::exception& e ) {
+                object_error(&m_ob, "macro error %s in %s",e.what(),atoms.c_str());
                 return;
-            }
-                
+                }
         }
-        catch( const std::exception& e ) {
-            object_error(&m_ob, "macro error %s in %s",e.what(),atoms.c_str());
-            return;
-            }
         
         // parse * n_chans
         try {
@@ -514,28 +560,74 @@ public:
         
     }
     
-    void merge(long inlet, t_symbol * s, long ac, t_atom * av) {
+    void merge(long inlet, t_symbol * s, long ac, t_atom * av)
+    {
         std::string name;
         std::string atoms;
+        bool atoms_set = false;
         
-        for(int i=0; i<ac; i++)
-            switch(av[i].a_type)
+        /* if only float or long parameter do a parse const*/
+        if (ac==1)
+        {
+            if(m_verbose)
+                object_post(&m_ob, "entering one argument case %s");
+            double value;
+            std::string value_str;
+            switch(av[0].a_type)
             {
-                case A_SYM:
-                    atoms += (av[i].a_w.w_sym->s_name);
-                    atoms += " ";
-                    break;
                 case A_LONG:
-                    atoms += std::to_string(av[i].a_w.w_long);
-                    atoms += " ";
+                    value = av[0].a_w.w_long;
                     break;
                 case A_FLOAT:
-                    atoms += std::to_string(av[i].a_w.w_float);
-                    atoms += " ";
+                    value = av[0].a_w.w_float;
+                    break;
+                case A_SYM:
+                    try
+                    {
+                        std::string value_str (av[0].a_w.w_sym->s_name);
+                        //object_post(&m_ob, "parsing float from %s",av[0].a_w.w_sym->s_name);
+                        std::string::size_type sz;     // alias of size_t
+
+                        value = std::stod (value_str,&sz);
+                        
+                    }
+                    catch (std::invalid_argument const& ex)
+                    {
+                        //object_error(&m_ob, "single float parsing %s in %s",ex.what(),atoms.c_str());
+                        //return;
+                    }
+                    
                     break;
             }
+            
+            atoms = "const( val=" + std::to_string(value) + " )";
+            atoms_set = true;
+            //object_post(&m_ob, "parsing %s",atoms.c_str());
+            
+        }
+        
+        if(!atoms_set)
+            for(int i=0; i<ac; i++)
+                switch(av[i].a_type)
+                {
+                    case A_SYM:
+                        atoms += (av[i].a_w.w_sym->s_name);
+                        atoms += " ";
+                        break;
+                    case A_LONG:
+                        atoms += std::to_string(av[i].a_w.w_long);
+                        atoms += " ";
+                        break;
+                    case A_FLOAT:
+                        atoms += std::to_string(av[i].a_w.w_float);
+                        atoms += " ";
+                        break;
+                }
+            
+            
         if(m_verbose)
-            object_post(&m_ob, "merge: parsing %s",atoms.c_str());
+            object_post(&m_ob, "parsing %s",atoms.c_str());
+        
         
         // macro replace
         
@@ -858,6 +950,43 @@ public:
         
     }
     
+    void sample(long inlet, t_symbol * s, long ac, t_atom * av) {
+        long points=256;
+        double duration = 5000;
+        
+        maxlang::modtor * _modtor = *modtor_vector[0];
+        
+        /*if(ac>=1 && av[0].a_type == A_FLOAT)
+        {
+            duration = av[0].a_w.w_float;
+            object_post(&m_ob, "duration set %d",duration);
+            
+        }
+        if(ac>=2 && av[1].a_type == A_LONG)
+        {
+            points = (av[1].a_w.w_long > 2)? av[1].a_w.w_long : 2;
+            object_post(&m_ob, "points set %d",points);
+        }
+         */
+        
+        if(_modtor)
+        {
+            
+            
+            systhread_mutex_lock(mutx);
+            //double time = 0;
+            double time_inc = duration / points;
+            for(int i=0; i<points; i++)
+                atom_setfloat(outsample+i,_modtor->get(time_inc));
+
+            // mutex unlock
+            systhread_mutex_unlock(mutx);
+
+            outlet_list(m_outlets[3],0L,points,outsample);
+        }
+    
+    }
+    
     
     
     // TIMING
@@ -914,6 +1043,7 @@ C74_EXPORT int main(void) {
     REGISTER_METHOD_GIMME(maxlang_modulator, sync);
     REGISTER_METHOD_GIMME(maxlang_modulator, dictionary);
     REGISTER_METHOD_FLOAT(maxlang_modulator, floatin);
+    REGISTER_METHOD_GIMME(maxlang_modulator, sample);
     REGISTER_METHOD(maxlang_modulator, clear);
 	
 

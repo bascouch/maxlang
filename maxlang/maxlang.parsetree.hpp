@@ -112,7 +112,7 @@ std::shared_ptr<modtor*> merge_modtor( std::shared_ptr<modtor*> *_modtorA_ptr, s
             }else if (value_node->type == "maxlang::modtor_operator_expression")
             {
                 modtor * child_modtor = 0;
-                std::shared_ptr<modtor*> *child_modtor_ptr;
+                std::shared_ptr<modtor*> * child_modtor_ptr;
                 if(modtree_parse_modtor_operator_expression(*value_node, child_modtor_ptr,m_ob, _scope))
                 {
                     _modtor_param = new modtor_param(*child_modtor_ptr);
@@ -274,10 +274,10 @@ int modtree_parse_modtor_def(const pegtl::parse_tree::node& n, std::shared_ptr<m
             }else if (value_node->type == "maxlang::modtor_operator_expression")
             {
                 modtor * child_modtor = 0;
-                std::shared_ptr<modtor *> *child_modtor_ptr ;
-                if(modtree_parse_modtor_operator_expression(*value_node, child_modtor_ptr,m_ob, _scope))
+                std::shared_ptr<modtor *> child_modtor_ptr ;
+                if(modtree_parse_modtor_operator_expression(*value_node, &child_modtor_ptr,m_ob, _scope))
                 {
-                    _modtor_param = new modtor_param(*child_modtor_ptr);
+                    _modtor_param = new modtor_param(child_modtor_ptr);
                     std::shared_ptr<modtor_param *> _modtor_param_ptr = std::make_shared<modtor_param *> (_modtor_param);
                     (**_modtor)->setparam(name,_modtor_param_ptr);
                     return 1;
