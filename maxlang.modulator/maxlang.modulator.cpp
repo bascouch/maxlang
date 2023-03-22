@@ -529,7 +529,7 @@ public:
                         modtor_vector_destination[i] = modtor_vector[i];
                     }
                     
-                    int ret = maxlang::modtree_make(*root, &modtor_vector[i], &m_ob, _scope);
+                    int ret = maxlang::modtree_make(*root, modtor_vector[i], &m_ob, _scope);
                     systhread_mutex_unlock(mutx);
                     
                     if(!ret)
@@ -661,7 +661,7 @@ public:
                         maxlang::print_node( *root );
                     systhread_mutex_lock(mutx);
 
-                    int ret = maxlang::modtree_make(*root, &modtor_vector_destination[i], &m_ob, _scope);
+                    int ret = maxlang::modtree_make(*root, modtor_vector_destination[i], &m_ob, _scope);
                     systhread_mutex_unlock(mutx);
                     
                     if(!ret)
@@ -675,8 +675,8 @@ public:
                         // merge with current graph
                         systhread_mutex_lock(mutx);
                         modtor_vector[i] = merge_modtor(
-                                                        &modtor_vector[i],
-                                                        &modtor_vector_destination[i],
+                                                        modtor_vector[i],
+                                                        modtor_vector_destination[i],
                                                         _scope);
                         systhread_mutex_unlock(mutx);
 

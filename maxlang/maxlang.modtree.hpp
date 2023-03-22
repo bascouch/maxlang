@@ -127,6 +127,7 @@ std::shared_ptr<modtor*>  modtor_create_fromstring(std::string s, scope * scope)
         modtor_param(int v);
         modtor_param(std::vector<double> l);
         modtor_param(std::shared_ptr<modtor *>m);
+        modtor_param(std::shared_ptr<modtor_param *>m);
         modtor_param(std::string s);
         
         modtor_param& operator=(modtor_param other)
@@ -313,10 +314,10 @@ std::shared_ptr<modtor_param*> merge_modtor_param(std::shared_ptr<modtor_param*>
             return _scope->getvariable(varname);
         }
         
-        std::shared_ptr<modtor*> merge_modtor(std::shared_ptr<modtor*> *modtor_B_ptr, scope * _scope)
+        std::shared_ptr<modtor*> merge_modtor(std::shared_ptr<modtor*> &modtor_B_ptr, scope * _scope)
         {
             // check modtor A B equality by classname
-            modtor* modtor_B = **modtor_B_ptr;
+            modtor* modtor_B = *modtor_B_ptr;
             std::shared_ptr<maxlang::modtor*> _modtor_ptr;
             
             if(this->modtor_classname == modtor_B->modtor_classname)
@@ -463,6 +464,35 @@ std::shared_ptr<modtor_param*> merge_modtor_param(std::shared_ptr<modtor_param*>
         
         _type = modtor_param_type::e_modtor;
         _modtor = m;
+    }
+
+    modtor_param::modtor_param(std::shared_ptr<modtor_param *>p){
+        
+        modtor_param *param = *p;
+        _type = param->_type;
+        
+        _type = modtor_param_type::e_modtor;
+        switch (_type)
+        {
+            case modtor_param_type::e_double:
+                _value_d = param->_value_d;
+                break;
+            case modtor_param_type::e_int:
+                _value_i = param->_value_i;
+                break;
+            case modtor_param_type::e_list:
+                _list = param->_list;
+                break;
+            case modtor_param_type::e_string:
+                _string = param->_string;
+                break;
+            case modtor_param_type::e_modtor:
+                _modtor = param->_modtor;
+                break;
+                
+            
+        }
+        
     }
     
     modtor_param::modtor_param(std::string s){
