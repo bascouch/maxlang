@@ -17,9 +17,48 @@ namespace pegtl = tao::pegtl;
 #include "maxlang.modtree.hpp"
 #include "maxlang.parsetree.hpp"
 #include "maxlang.macrotree.hpp"
+#include "maxlang.deftree.hpp"
+
 
 class maxlang_modulator : public MaxCpp6<maxlang_modulator> {
 public:
+    
+    /* members */
+    
+    std::chrono::high_resolution_clock::time_point std_prevTick = std::chrono::high_resolution_clock::now();
+    std::chrono::high_resolution_clock::time_point std_tack;
+    std::chrono::high_resolution_clock::time_point std_tmpTick;
+    
+    double prevTick;
+    double tack;
+    double tmpTick;
+    
+    int use_system_clock=0;
+    
+    int n_chans = 1;
+    t_atom * outlist;
+    t_atom * outstring;
+    double * lastval;
+    
+    std::vector<maxlang::modtor *> modtor_vector;
+    std::vector<std::string> modtor_sources;
+    std::vector<std::string> modtor_sources_param;
+    std::vector<std::map<std::string,maxlang::modtor*>> named_modtor_ref_vector;
+    t_systhread_mutex mutx;
+    
+    std::unique_ptr<pegtl::parse_tree::node> modtor_parse_tree;
+    
+    
+    // internal clock // disabled
+    void *m_clock;
+    double m_interval;
+    
+    int m_verbose=0;
+    
+    
+    
+    /* methods */
+    
 	maxlang_modulator(t_symbol * sym, long ac, t_atom * av) {
 		setupIO(1, 3); // inlets / outlets
         long v;
@@ -656,34 +695,7 @@ public:
             tack = gettime();
     }
     
-    // members
-    std::chrono::high_resolution_clock::time_point std_prevTick = std::chrono::high_resolution_clock::now();
-    std::chrono::high_resolution_clock::time_point std_tack;
-    std::chrono::high_resolution_clock::time_point std_tmpTick;
     
-    double prevTick;
-    double tack;
-    double tmpTick;
-    
-    int use_system_clock=0;
-    
-    int n_chans = 1;
-    t_atom * outlist;
-    t_atom * outstring;
-    double * lastval;
-    
-    std::vector<maxlang::modtor *> modtor_vector;
-    std::vector<std::string> modtor_sources;
-    std::vector<std::string> modtor_sources_param;
-    std::vector<std::map<std::string,maxlang::modtor*>> named_modtor_ref_vector;
-    t_systhread_mutex mutx;
-    
-    
-    // internal clock // disabled
-    void *m_clock;
-    double m_interval;
-    
-    int m_verbose=0;
     
 };
 

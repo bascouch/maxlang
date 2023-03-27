@@ -310,7 +310,7 @@ namespace maxlang {
         
     public:
         
-        m_lfo(double from)
+        m_lfo()
         {
             params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(0.6)));
             params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
@@ -542,11 +542,11 @@ namespace maxlang {
         
     public:
         
-        m_line(double from)
+        m_line()
         {
             params.insert(std::pair<std::string, modtor_param>("time",modtor_param(5000.)));
             params.insert(std::pair<std::string, modtor_param>("varitime",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("min",modtor_param(from)));
+            params.insert(std::pair<std::string, modtor_param>("min",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
@@ -748,7 +748,7 @@ namespace maxlang {
         
     public:
         
-        m_randi(double from)
+        m_randi()
         {
             params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(6.)));
             params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
@@ -958,7 +958,7 @@ namespace maxlang {
         
     public:
         
-        m_rand(double from)
+        m_rand()
         {
             params.insert(std::pair<std::string, modtor_param>("freq",modtor_param(6.)));
             params.insert(std::pair<std::string, modtor_param>("varifreq",modtor_param(0.)));
@@ -1156,7 +1156,7 @@ namespace maxlang {
         
     public:
         
-        m_choice(double from)
+        m_choice()
         {
             m_list = std::vector<double>({0.,1.});
             m_list_l = m_list.size();
@@ -1341,7 +1341,7 @@ namespace maxlang {
         
     public:
         
-        m_choicei(double from)
+        m_choicei()
         {
             m_list = std::vector<double>({0.,1.});
             m_list_l = m_list.size();
@@ -1548,7 +1548,7 @@ namespace maxlang {
         
     public:
         
-        m_seqi(double from)
+        m_seqi()
         {
             m_list = std::vector<double>({0.1,0.3,0.5,0.8});
             m_list_l = m_list.size();
@@ -1829,7 +1829,7 @@ namespace maxlang {
         
     public:
         
-        m_seq(double from)
+        m_seq()
         {
             m_list = std::vector<double>({0.1,0.3,0.5,0.8});
             m_list_l = m_list.size();
@@ -2086,7 +2086,7 @@ namespace maxlang {
         
     public:
         
-        m_env(double from)
+        m_env()
         {
             // y1 dt1 y2 dt2 y3
 
@@ -2437,7 +2437,7 @@ namespace maxlang {
         
     public:
         
-        m_quantize(double from)
+        m_quantize()
         {
             // y1 dt1 y2 dt2 y3
 
@@ -2682,7 +2682,7 @@ namespace maxlang {
         
     public:
         
-        m_input(double from)
+        m_input()
         {
             params.insert(std::pair<std::string, modtor_param>("name",modtor_param("name")));
             params.insert(std::pair<std::string, modtor_param>("in",modtor_param("input")));
@@ -2770,10 +2770,12 @@ namespace maxlang {
         
     public:
         
-        m_add(double from)
+        m_add()
         {
-            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(from)));
+            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("b",modtor_param(0)));
+            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
         };
         
         ~m_add()
@@ -2793,10 +2795,17 @@ namespace maxlang {
         {
             modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
             modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
 
             
             for(int i=0; i<numframes; i++)
-                values[i] = p_a->get_b(i) + p_b->get_b(i);
+            {
+                double mul = p_mul->get_b(i);
+                double add = p_add->get_b(i);
+                values[i] = add+(mul * (p_a->get_b(i) + p_b->get_b(i)));
+                
+            }
     
         }
         
@@ -2806,7 +2815,10 @@ namespace maxlang {
             double in1 = params["a"].get(deltatime);
             double in2 = params["b"].get(deltatime);
             
-            return in1 + in2;
+            double mul = params["mul"].get(deltatime);
+            double add = params["add"].get(deltatime);
+            
+            return add + ( mul * (in1 + in2));
         }
     };
 
@@ -2814,10 +2826,12 @@ namespace maxlang {
         
     public:
         
-        m_minus(double from)
+        m_minus()
         {
-            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(from)));
-            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(0)));
+            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
         };
         
         ~m_minus()
@@ -2837,10 +2851,17 @@ namespace maxlang {
         {
             modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
             modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
 
             
             for(int i=0; i<numframes; i++)
-                values[i] = p_a->get_b(i) - p_b->get_b(i);
+            {
+                double mul = p_mul->get_b(i);
+                double add = p_add->get_b(i);
+                values[i] = add+(mul * (p_a->get_b(i) - p_b->get_b(i)));
+                
+            }
     
         }
         
@@ -2849,8 +2870,10 @@ namespace maxlang {
             // get all the parameters
             double in1 = params["a"].get(deltatime);
             double in2 = params["b"].get(deltatime);
+            double mul = params["mul"].get(deltatime);
+            double add = params["add"].get(deltatime);
             
-            return in1 - in2;
+            return add + ( mul * (in1 - in2));
         }
     };
 
@@ -2858,10 +2881,12 @@ namespace maxlang {
         
     public:
         
-        m_mul(double from)
+        m_mul()
         {
-            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(from)));
+            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("b",modtor_param(1)));
+            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
         };
         
         ~m_mul()
@@ -2881,10 +2906,17 @@ namespace maxlang {
         {
             modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
             modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
 
             
             for(int i=0; i<numframes; i++)
-                values[i] = p_a->get_b(i) * p_b->get_b(i);
+            {
+                double mul = p_mul->get_b(i);
+                double add = p_add->get_b(i);
+                values[i] = add+(mul * (p_a->get_b(i) * p_b->get_b(i)));
+                
+            }
     
         }
         
@@ -2893,8 +2925,10 @@ namespace maxlang {
             // get all the parameters
             double in1 = params["a"].get(deltatime);
             double in2 = params["b"].get(deltatime);
+            double mul = params["mul"].get(deltatime);
+            double add = params["add"].get(deltatime);
             
-            return in1 * in2;
+            return add + ( mul * (in1 * in2));
         }
     };
 
@@ -2902,10 +2936,12 @@ namespace maxlang {
         
     public:
         
-        m_div(double from)
+        m_div()
         {
-            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(from)));
+            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("b",modtor_param(1)));
+            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
         };
         
         ~m_div()
@@ -2925,10 +2961,17 @@ namespace maxlang {
         {
             modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
             modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
 
             
             for(int i=0; i<numframes; i++)
-                values[i] = p_a->get_b(i) / p_b->get_b(i);
+            {
+                double mul = p_mul->get_b(i);
+                double add = p_add->get_b(i);
+                values[i] = add+(mul * (p_a->get_b(i) / p_b->get_b(i)));
+                
+            }
     
         }
         
@@ -2937,8 +2980,10 @@ namespace maxlang {
             // get all the parameters
             double in1 = params["a"].get(deltatime);
             double in2 = params["b"].get(deltatime);
+            double mul = params["mul"].get(deltatime);
+            double add = params["add"].get(deltatime);
             
-            return in1 / in2;
+            return add + ( mul * (in1 / in2));
         }
     };
     
@@ -2946,10 +2991,10 @@ namespace maxlang {
         
     public:
         
-        m_xfade(double from)
+        m_xfade()
         {
 
-            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(from)));
+            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("b",modtor_param(1)));
             params.insert(std::pair<std::string, modtor_param>("fade",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("fadecurve",modtor_param(0.)));
@@ -3061,113 +3106,168 @@ namespace maxlang {
         xfade
     };
     
-    modtor_type_enum modtor_create_fromstring(std::string s, modtor *&m, double from)
+
+class modtordef;
+    
+
+
+    
+    modtor_type_enum modtor_create_fromstring(std::string s, modtor *&m, bool ommit_create)
     {
         /* operators */
+        bool create = ! ommit_create;
         if(s == "add" || s == "+")
         {
-            if(m) delete m;
-            m = new m_add(from);
+            if(create)
+            {
+                if(m) delete m;
+                m = new m_add();
+            }
             return modtor_type_enum::add;
         }
         
         if(s == "minus" || s == "-")
         {
-            if(m) delete m;
-            m = new m_minus(from);
+            if(create)
+            {
+                if(m) delete m;
+                m = new m_minus();
+            }
             return modtor_type_enum::minus;
         }
         
         if(s == "mul" || s == "*")
         {
-            if(m) delete m;
-            m = new m_mul(from);
+            if(create)
+            {
+                if(m) delete m;
+                m = new m_mul();
+            }
             return modtor_type_enum::mul;
         }
         
         if(s == "div" || s == "/")
         {
-            if(m) delete m;
-            m = new m_div(from);
+            if(create)
+            {
+                if(m) delete m;
+                m = new m_div();
+            }
             return modtor_type_enum::div;
         }
         
         /* modulators */
         if(s == "lfo")
         {
-            if(m) delete m;
-            m = new m_lfo(from);
+            if(create)
+            {
+                if(m) delete m;
+                m = new m_lfo();
+            }
             return modtor_type_enum::lfo;
         }
         if(s == "line")
         {
-            if(m) delete m;
-            m = new m_line(from);
+            if(create)
+            {
+                if(m) delete m;
+                m = new m_line();
+            }
             return modtor_type_enum::line;
         }
 
         if(s == "rand")
         {
-            if(m) delete m;
-            m = new m_rand(from);
+            if(create)
+            {
+                if(m) delete m;
+                m = new m_rand();
+            }
             return modtor_type_enum::rand;
         }
         if(s == "randi")
         {
-            if(m) delete m;
-            m = new m_randi(from);
+            if(create)
+            {
+                if(m) delete m;
+                m = new m_randi();
+            }
             return modtor_type_enum::randi;
         }
         if(s == "choice")
         {
-            if(m) delete m;
-            m = new m_choice(from);
+            if(create)
+            {
+                if(m) delete m;
+                m = new m_choice();
+            }
             return modtor_type_enum::choice;
         }
         if(s == "choicei")
         {
-            if(m) delete m;
-            m = new m_choicei(from);
+            if(create)
+            {
+                if(m) delete m;
+                m = new m_choicei();
+            }
             return modtor_type_enum::choicei;
         }
         if(s == "seq")
         {
-            if(m) delete m;
-            m = new m_seq(from);
+            if(create)
+            {
+                if(m) delete m;
+                m = new m_seq();
+            }
             return modtor_type_enum::seq;
         }
         if(s == "seqi")
         {
-            if(m) delete m;
-            m = new m_seqi(from);
+            if(create)
+            {
+                if(m) delete m;
+                m = new m_seqi();
+            }
             return modtor_type_enum::seqi;
         }
         if(s == "env")
         {
-            if(m) delete m;
-            m = new m_env(from);
+            if(create)
+            {
+                if(m) delete m;
+                m = new m_env();
+            }
             return modtor_type_enum::env;
         }
         
         if(s == "quantize")
         {
-            if(m) delete m;
-            m = new m_quantize(from);
+            if(create)
+            {
+                if(m) delete m;
+                m = new m_quantize();
+            }
             return modtor_type_enum::quantize;
         }
         
         if(s == "xfade")
         {
-            if(m) delete m;
-            m = new m_xfade(from);
+            if(create)
+            {
+                if(m) delete m;
+                m = new m_xfade();
+            }
             return modtor_type_enum::xfade;
         }
         
         
         if(s == "input")
         {
-            if(m) delete m;
-            m = new m_input(from);
+            if(create)
+            {
+                if(m) delete m;
+                m = new m_input();
+            }
             return modtor_type_enum::input;
         }
         
