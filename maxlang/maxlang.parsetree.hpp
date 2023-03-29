@@ -39,7 +39,7 @@ namespace maxlang {
         std::string op_str = oper_node->string();
         
         /* create operator modtor */
-        modtor_type_enum modtor_type_e = modtor_create_fromstring(op_str,_modtor,from_value);
+        modtor_type_enum modtor_type_e = modtor_create_fromstring(op_str,_modtor,true);
         
         /* parse the operator arguments and make modtor_param*/
         maxlang::modtor_param * value_a, *value_b;
@@ -144,7 +144,7 @@ namespace maxlang {
         // parse children maxlang::modtor_type
         if(type_node->has_content() && type_node->type == "maxlang::modtor_type") {
             std::string name = type_node->string();
-            modtor_type_enum modtor_type_e = modtor_create_fromstring(name,_modtor,from_value);
+            modtor_type_enum modtor_type_e = modtor_create_fromstring(name,_modtor,true);
             if(modtor_type_e == modtor_type_enum::unknown)
             {
                 object_error(m_ob, "unknown modtor type %s",name.c_str());

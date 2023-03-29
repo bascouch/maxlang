@@ -3207,15 +3207,13 @@ class modtordef;
 
 
     
-    modtor_type_enum modtor_create_fromstring(std::string s, modtor *&m, bool ommit_create)
+    modtor_type_enum modtor_create_fromstring(std::string s, modtor *&m, bool create)
     {
         /* operators */
-        bool create = ! ommit_create;
         if(s == "add" || s == "+")
         {
             if(create)
             {
-                if(m) delete m;
                 m = new m_add();
             }
             return modtor_type_enum::add;
@@ -3225,7 +3223,6 @@ class modtordef;
         {
             if(create)
             {
-                if(m) delete m;
                 m = new m_minus();
             }
             return modtor_type_enum::minus;
@@ -3235,7 +3232,6 @@ class modtordef;
         {
             if(create)
             {
-                if(m) delete m;
                 m = new m_mul();
             }
             return modtor_type_enum::mul;
@@ -3245,7 +3241,6 @@ class modtordef;
         {
             if(create)
             {
-                if(m) delete m;
                 m = new m_div();
             }
             return modtor_type_enum::div;
@@ -3256,7 +3251,6 @@ class modtordef;
         {
             if(create)
             {
-                if(m) delete m;
                 m = new m_lfo();
             }
             return modtor_type_enum::lfo;
@@ -3265,7 +3259,6 @@ class modtordef;
         {
             if(create)
             {
-                if(m) delete m;
                 m = new m_line();
             }
             return modtor_type_enum::line;
@@ -3275,7 +3268,6 @@ class modtordef;
         {
             if(create)
             {
-                if(m) delete m;
                 m = new m_rand();
             }
             return modtor_type_enum::rand;
@@ -3284,7 +3276,6 @@ class modtordef;
         {
             if(create)
             {
-                if(m) delete m;
                 m = new m_randi();
             }
             return modtor_type_enum::randi;
@@ -3293,7 +3284,6 @@ class modtordef;
         {
             if(create)
             {
-                if(m) delete m;
                 m = new m_choice();
             }
             return modtor_type_enum::choice;
@@ -3302,7 +3292,6 @@ class modtordef;
         {
             if(create)
             {
-                if(m) delete m;
                 m = new m_choicei();
             }
             return modtor_type_enum::choicei;
@@ -3311,7 +3300,6 @@ class modtordef;
         {
             if(create)
             {
-                if(m) delete m;
                 m = new m_seq();
             }
             return modtor_type_enum::seq;
@@ -3320,7 +3308,6 @@ class modtordef;
         {
             if(create)
             {
-                if(m) delete m;
                 m = new m_seqi();
             }
             return modtor_type_enum::seqi;
@@ -3329,7 +3316,6 @@ class modtordef;
         {
             if(create)
             {
-                if(m) delete m;
                 m = new m_env();
             }
             return modtor_type_enum::env;
@@ -3339,7 +3325,6 @@ class modtordef;
         {
             if(create)
             {
-                if(m) delete m;
                 m = new m_quantize();
             }
             return modtor_type_enum::quantize;
@@ -3349,10 +3334,18 @@ class modtordef;
         {
             if(create)
             {
-                if(m) delete m;
                 m = new m_xfade();
             }
             return modtor_type_enum::xfade;
+        }
+        
+        if(s == "interpol")
+        {
+            if(create)
+            {
+                m = new m_interpol();
+            }
+            return modtor_type_enum::interpol;
         }
         
         
@@ -3360,7 +3353,6 @@ class modtordef;
         {
             if(create)
             {
-                if(m) delete m;
                 m = new m_input();
             }
             return modtor_type_enum::input;

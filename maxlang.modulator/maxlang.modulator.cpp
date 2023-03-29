@@ -511,7 +511,7 @@ public:
         {
             const char * modtor_type;
             dictionary_getstring(d,modtor_key, &modtor_type);
-            maxlang::modtor_type_enum modtor_type_e = modtor_create_fromstring(modtor_type,returned_modtor,0.);
+            maxlang::modtor_type_enum modtor_type_e = modtor_create_fromstring(modtor_type,returned_modtor,true);
             if(modtor_type_e == maxlang::modtor_type_enum::unknown)
             {
                 object_error(&m_ob, "unknown modtor type %s",modtor_type);
