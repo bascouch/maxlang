@@ -48,6 +48,9 @@ public:
     
     std::unique_ptr<pegtl::parse_tree::node> modtor_parse_tree;
     
+    maxlang::modtordef ** defTreeA_list;
+    maxlang::modtordef ** defTreeB_list;
+    
     
     // internal clock // disabled
     void *m_clock;
@@ -81,6 +84,16 @@ public:
         modtor_vector.resize(n_chans, 0);
         modtor_sources.resize(n_chans);
         modtor_sources_param.resize(n_chans);
+        
+        defTreeA_list = new maxlang::modtordef*[n_chans];
+        defTreeB_list = new maxlang::modtordef*[n_chans];
+        
+        for(int i=0; i<n_chans; i++)
+        {
+            defTreeA_list[i] = new maxlang::modtordef(maxlang::modtor_type_enum::add,"add");
+            defTreeB_list[i] = new maxlang::modtordef(maxlang::modtor_type_enum::add,"add");
+        }
+        
         
         std::map<std::string,maxlang::modtor*> modtor_ref;
         named_modtor_ref_vector.resize(n_chans, modtor_ref);
@@ -381,8 +394,9 @@ public:
                     if(m_verbose)
                         maxlang::print_node( *root );
                     systhread_mutex_lock(mutx);
-
-                    int ret = maxlang::modtree_make(*root, modtor_vector[i], &m_ob, lastval[i]);
+                    int ret = maxlang::deftree_make(*root, defTreeA_list[i] , &m_ob);
+                    
+                    ret = maxlang::modtree_make(*root, modtor_vector[i], &m_ob, lastval[i]);
                     systhread_mutex_unlock(mutx);
                     
                     if(!ret)
@@ -644,6 +658,107 @@ public:
         
     }
     
+    void merge(long inlet, t_symbol * s, long ac, t_atom * av) {
+        std::string name;
+        std::string atoms;
+        
+        for(int i=0; i<ac; i++)
+            switch(av[i].a_type)
+            {
+                case A_SYM:
+                    atoms += (av[i].a_w.w_sym->s_name);
+                    atoms += " ";
+                    break;
+                case A_LONG:
+                    atoms += std::to_string(av[i].a_w.w_long);
+                    atoms += " ";
+                    break;
+                case A_FLOAT:
+                    atoms += std::to_string(av[i].a_w.w_float);
+                    atoms += " ";
+                    break;
+            }
+        if(m_verbose)
+            object_post(&m_ob, "parsing %s",atoms.c_str());
+        
+        // macro replace
+        
+        try {
+            if(!maxlang::macro_parse_and_apply(atoms, n_chans, modtor_sources, &m_ob))
+            {
+                object_error(&m_ob, "macro parse and apply error in %s",atoms.c_str());
+                return;
+            }
+                
+        }
+        catch( const std::exception& e ) {
+            object_error(&m_ob, "macro error %s in %s",e.what(),atoms.c_str());
+            return;
+            }
+        
+        // parse * n_chans
+        try {
+            for(int i=0; i< n_chans; i++)
+            {
+                pegtl::string_input input( modtor_sources[i], std::string("input"));
+            
+                if( const auto root = pegtl::parse_tree::parse< maxlang::modtor_start, maxlang::store >(input) ) {
+                    if(m_verbose)
+                        maxlang::print_node( *root );
+                    systhread_mutex_lock(mutx);
+                    int ret = maxlang::deftree_make(*root, defTreeB_list[i], &m_ob);
+                    
+                    /* do merge */
+                    maxlang::modtordef _modtordef_new = defTreeA_list[i]->merge_modtordef(*(defTreeB_list[i]));
+                    
+                    /* replace deftree A */
+                    *defTreeA_list[i] = _modtordef_new;
+                    
+                    /* replace source str*/
+                    modtor_sources[i] = _modtordef_new.get_modtordef_str();
+                    
+                    /* reconstruct modtree*/
+                    pegtl::string_input input( modtor_sources[i], std::string("input"));
+                
+                    if( const auto root = pegtl::parse_tree::parse< maxlang::modtor_start, maxlang::store >(input) )
+                    {
+                        int ret = maxlang::deftree_make(*root, defTreeA_list[i], &m_ob);
+                        ret = maxlang::modtree_make(*root, modtor_vector[i], &m_ob, lastval[i]);
+                    }
+                    
+                    systhread_mutex_unlock(mutx);
+                    
+                    if(!ret)
+                    {
+                        object_error(&m_ob, "error making modtree : %s",atoms.c_str());
+                        return;
+                    }
+                    else
+                    {
+                        // ALL GOOD -> get refnames
+                        named_modtor_ref_vector[i].clear();
+                        modtor_vector[i]->traverse_for_ref(named_modtor_ref_vector[i]);
+                    }
+                }
+                else {
+                    object_error(&m_ob, "error parsing %s",atoms.c_str());
+                    return;
+                }
+                
+                atom_setlong(outstring,i);
+                atom_setsym(outstring+1,gensym(modtor_sources[i].c_str()));
+                outlet_list(m_outlets[2], 0L, 2,outstring);
+                
+                
+            }
+    }
+    catch( const std::exception& e ) {
+        object_error(&m_ob, "parse error %s in %s",e.what(),atoms.c_str());
+        return;
+        }
+        
+    }
+    
     void clear(long inlet)
     {
         systhread_mutex_lock(mutx);
@@ -706,6 +821,7 @@ C74_EXPORT int main(void) {
 	REGISTER_METHOD_GIMME(maxlang_modulator, test);
     REGISTER_METHOD_GIMME(maxlang_modulator, verbose);
     REGISTER_METHOD_GIMME(maxlang_modulator, parse);
+    REGISTER_METHOD_GIMME(maxlang_modulator, merge);
     REGISTER_METHOD_GIMME(maxlang_modulator, parameter);
     REGISTER_METHOD_GIMME(maxlang_modulator, sync);
     REGISTER_METHOD_GIMME(maxlang_modulator, dictionary);

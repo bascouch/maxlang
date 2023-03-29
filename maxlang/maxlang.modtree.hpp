@@ -2685,7 +2685,7 @@ namespace maxlang {
         m_input()
         {
             params.insert(std::pair<std::string, modtor_param>("name",modtor_param("name")));
-            params.insert(std::pair<std::string, modtor_param>("in",modtor_param("input")));
+            params.insert(std::pair<std::string, modtor_param>("in",modtor_param("input00")));
             params.insert(std::pair<std::string, modtor_param>("min",modtor_param(0.)));
             params.insert(std::pair<std::string, modtor_param>("max",modtor_param(1.)));
             params.insert(std::pair<std::string, modtor_param>("curve",modtor_param(0.)));
@@ -2765,6 +2765,196 @@ namespace maxlang {
             return add+(output_scale.apply(v)*mul);
         }
     };
+
+
+    class m_xfade : public modtor {
+        
+    public:
+        
+        m_xfade()
+        {
+
+            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(1)));
+            params.insert(std::pair<std::string, modtor_param>("fade",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("fadecurve",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
+            
+            segment_scale.setin_minmax(0., 1.);
+            segment_scale.setout_min(0.);
+            segment_scale.setout_max(1.);
+        };
+        
+        ~m_xfade()
+        {
+            params.clear();
+        }
+        
+        double m_fade1 = 1.;
+        double m_fade2 = 0.;
+        double m_curve = 0.;
+        double m_val = 0.;
+        scale_curve segment_scale;
+
+        void seed(std::string seed_str) override
+        {
+        }
+        
+        void sync(double _phase) override
+        {
+        }
+        
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
+            modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
+            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
+            modtor_param * p_fade = params["fade"].buffer_proc(numframes, deltatime);
+            modtor_param * p_fadecurve = params["fadecurve"].buffer_proc(numframes, deltatime);
+            
+            // sample curve
+            double fadecurve = std::clamp(p_fadecurve->get_b(0),-1.04,1.04);
+            // fadecurve = 0 : linear
+            // fadecurve = 1 : tight (square)
+            segment_scale.setcurve(fadecurve);
+            
+            for(int i=0; i<numframes; i++)
+            {
+                // get all the parameters
+                double in1 = p_a->get_b(i);
+                double in2 = p_b->get_b(i);
+                double mul = p_mul->get_b(i);
+                double add = p_add->get_b(i);
+                double fade = std::clamp(p_fade->get_b(i),0.,1.);
+                
+                //m_fade1 = std::clamp((((1-fade)-0.5)*(1./(1.-fadecurve)))+0.5,0.,1.);
+                m_fade2 = segment_scale.apply(fade);
+                m_fade1 = 1.- m_fade2;
+                    
+                m_val = (m_fade1 * in1) + (m_fade2 * in2);
+                
+                return add+(m_val*mul);
+            }
+
+        }
+        
+        double get(double deltatime) override
+        {
+            // get all the parameters
+            double in1 = params["a"].get(deltatime);
+            double in2 = params["b"].get(deltatime);
+            double mul = params["mul"].get(deltatime);
+            double add = params["add"].get(deltatime);
+            double fade = std::clamp(params["fade"].get(deltatime),0.,1.);
+            double fadecurve = std::clamp(params["fadecurve"].get(deltatime),-1.04,1.04);
+            
+            // fadecurve = 0 : linear
+            // fadecurve = 1 : tight (square)
+
+            
+            segment_scale.setcurve(fadecurve);
+            //m_fade1 = std::clamp((((1-fade)-0.5)*(1./(1.-fadecurve)))+0.5,0.,1.);
+            m_fade2 = segment_scale.apply(fade);
+            m_fade1 = 1.- m_fade2;
+                
+            m_val = (m_fade1 * in1) + (m_fade2 * in2);
+            
+            return add+(m_val*mul);
+        }
+    };
+
+    class m_interpol : public modtor {
+        
+    public:
+        
+        m_interpol()
+        {
+
+            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(1)));
+            params.insert(std::pair<std::string, modtor_param>("id",modtor_param("interp00")));
+            //params.insert(std::pair<std::string, modtor_param>("fadecurve",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
+            
+            
+            m_dict = dictobj_findregistered_retain (gensym("maxlang.input-internal.dict"));
+            
+            m_val_sym = gensym("value");
+            m_min_sym = gensym("min");
+            m_max_sym = gensym("max");
+            
+
+        };
+        
+        ~m_interpol()
+        {
+            params.clear();
+        }
+        
+        double m_fade1 = 1.;
+        double m_fade2 = 0.;
+        double m_curve = 0.;
+        double m_val = 0.;
+        t_dictionary * m_dict;
+        t_symbol * m_val_sym, * m_min_sym, * m_max_sym;
+
+        void seed(std::string seed_str) override
+        {
+        }
+        
+        void sync(double _phase) override
+        {
+        }
+        
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            /* TODO */
+
+        }
+        
+        double get(double deltatime) override
+        {
+            // get all the parameters
+            std::string name = params["id"].getstring();
+            t_symbol * m_sym = gensym(name.c_str());
+            
+            // get all the parameters
+            double in1 = params["a"].get(deltatime);
+            double in2 = params["b"].get(deltatime);
+            double mul = params["mul"].get(deltatime);
+            double add = params["add"].get(deltatime);
+            
+            // get val, min and max from global dictionary maxlang.input-internal.dict
+            double fade, inmin, inmax;
+            
+            if(dictionary_hasentry (m_dict,m_sym))
+            {
+                fade=1;
+                t_dictionary * dchild;
+                dictionary_getdictionary(m_dict, m_sym, (t_object**)&dchild);
+                dictionary_getfloat(dchild, m_val_sym, &fade);
+                dictionary_getfloat(dchild, m_min_sym, &inmin);
+                dictionary_getfloat(dchild, m_max_sym, &inmax);
+            }
+            else
+            {
+                inmin=0.;
+                inmax=1.;
+                fade=0.;
+            }
+            
+            m_fade2 = fade;
+            m_fade1 = 1.- m_fade2;
+            m_val = (m_fade1 * in1) + (m_fade2 * in2);
+            
+            return add+(m_val*mul);
+        }
+    };
+
+
     
     class m_add : public modtor {
         
@@ -2987,103 +3177,7 @@ namespace maxlang {
         }
     };
     
-    class m_xfade : public modtor {
-        
-    public:
-        
-        m_xfade()
-        {
-
-            params.insert(std::pair<std::string, modtor_param>("a",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("b",modtor_param(1)));
-            params.insert(std::pair<std::string, modtor_param>("fade",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("fadecurve",modtor_param(0.)));
-            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
-            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
-            
-            segment_scale.setin_minmax(0., 1.);
-            segment_scale.setout_min(0.);
-            segment_scale.setout_max(1.);
-        };
-        
-        ~m_xfade()
-        {
-            params.clear();
-        }
-        
-        double m_fade1 = 1.;
-        double m_fade2 = 0.;
-        double m_curve = 0.;
-        double m_val = 0.;
-        scale_curve segment_scale;
-
-        void seed(std::string seed_str) override
-        {
-        }
-        
-        void sync(double _phase) override
-        {
-        }
-        
-        void perform(double * values,int numframes,double deltatime) override
-        {
-            modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
-            modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
-            modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-            modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-            modtor_param * p_fade = params["fade"].buffer_proc(numframes, deltatime);
-            modtor_param * p_fadecurve = params["fadecurve"].buffer_proc(numframes, deltatime);
-            
-            // sample curve
-            double fadecurve = std::clamp(p_fadecurve->get_b(0),-1.04,1.04);
-            // fadecurve = 0 : linear
-            // fadecurve = 1 : tight (square)
-            segment_scale.setcurve(fadecurve);
-            
-            for(int i=0; i<numframes; i++)
-            {
-                // get all the parameters
-                double in1 = p_a->get_b(i);
-                double in2 = p_b->get_b(i);
-                double mul = p_mul->get_b(i);
-                double add = p_add->get_b(i);
-                double fade = std::clamp(p_fade->get_b(i),0.,1.);
-                
-                //m_fade1 = std::clamp((((1-fade)-0.5)*(1./(1.-fadecurve)))+0.5,0.,1.);
-                m_fade2 = segment_scale.apply(fade);
-                m_fade1 = 1.- m_fade2;
-                    
-                m_val = (m_fade1 * in1) + (m_fade2 * in2);
-                
-                return add+(m_val*mul);
-            }
     
-        }
-        
-        double get(double deltatime) override
-        {
-            // get all the parameters
-            double in1 = params["a"].get(deltatime);
-            double in2 = params["b"].get(deltatime);
-            double mul = params["mul"].get(deltatime);
-            double add = params["add"].get(deltatime);
-            double fade = std::clamp(params["fade"].get(deltatime),0.,1.);
-            double fadecurve = std::clamp(params["fadecurve"].get(deltatime),-1.04,1.04);
-            
-            // fadecurve = 0 : linear
-            // fadecurve = 1 : tight (square)
-
-            
-            segment_scale.setcurve(fadecurve);
-            //m_fade1 = std::clamp((((1-fade)-0.5)*(1./(1.-fadecurve)))+0.5,0.,1.);
-            m_fade2 = segment_scale.apply(fade);
-            m_fade1 = 1.- m_fade2;
-                
-            m_val = (m_fade1 * in1) + (m_fade2 * in2);
-            
-            return add+(m_val*mul);
-        }
-    };
     
     
     enum modtor_type_enum{
@@ -3099,11 +3193,12 @@ namespace maxlang {
         env,
         quantize,
         input,
+        xfade,
+        interpol,
         add,
         minus,
         mul,
-        div,
-        xfade
+        div
     };
     
 
