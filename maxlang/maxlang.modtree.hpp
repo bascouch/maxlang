@@ -3178,7 +3178,47 @@ namespace maxlang {
     };
     
     
-    
+    class m_const : public modtor {
+        
+    public:
+        
+        m_const()
+        {
+            params.insert(std::pair<std::string, modtor_param>("val",modtor_param(0.)));
+            params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
+            params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
+        };
+        
+        ~m_const()
+        {
+            params.clear();
+        }
+        
+        void seed(std::string seed_str) override
+        {
+        }
+        
+        void sync(double _phase) override
+        {
+        }
+        
+        void perform(double * values,int numframes,double deltatime) override
+        {
+            /* todo */
+
+        }
+        
+        double get(double deltatime) override
+        {
+            // get all the parameters
+            double val = params["val"].get(deltatime);
+            
+            double mul = params["mul"].get(deltatime);
+            double add = params["add"].get(deltatime);
+            
+            return add + ( mul * val);
+        }
+    };
     
     enum modtor_type_enum{
         unknown,
@@ -3198,7 +3238,8 @@ namespace maxlang {
         add,
         minus,
         mul,
-        div
+        div,
+        constant
     };
     
 
@@ -3210,6 +3251,15 @@ class modtordef;
     modtor_type_enum modtor_create_fromstring(std::string s, modtor *&m, bool create)
     {
         /* operators */
+        if(s == "const")
+        {
+            if(create)
+            {
+                m = new m_const();
+            }
+            return modtor_type_enum::constant;
+        }
+        
         if(s == "add" || s == "+")
         {
             if(create)
