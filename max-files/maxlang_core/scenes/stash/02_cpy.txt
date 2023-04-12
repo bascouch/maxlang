@@ -1,0 +1,41 @@
+SCENE scene2
+
+# pitch
+CHAIN transpolfo
+in adc=[1,2] # input Clar
+filter name=filterseqC freq=220 mode=3 width=12
+delay name=delayseqC time=rand(freq=randi(freq=10,min=0.1,max=10,curve=1),min=0,max=5000,curve=1)
+freqshift name=shishi shift=randi(name=gigilfo,freq=lfo(freq=0.5,min=0.05,max=0.2), min=-100, max=100, curve=0)
+reverb size=120 drywet=midictl(num=86,min=0,max=100)
+out vca=1 dac=[1,2,3,4]
+
+# additive reverb
+
+CHAIN additive
+in
+filter freq=50
+additive name=addi2 decay=200 attack=2 freqsmoo=2 npeak=2 hrm=randi(min=0., max=.5,freq=0.2) randdev=20 freqtransp=-24
+reverb
+out vca=2 dac=[1,2]
+
+#CHAIN
+CHAIN svptrans
+in
+delay time=0
+svptrans name= svp1 transp=-50. envscale=lfo(freq=0.02,min=0.5,max=1.7,curve=0.1) sinus=1. error=0.2 gain=12
+reverb size=30 decay=40 damping=30 drywet=20
+filter name=outfilter mode=2 freq=1800 width=90
+out vca=3
+
+CHAIN shiftsimple
+in
+receivebus bus=tramecrotale
+freqshift shift=randi(min=-1000,max=-800,freq=0.1)
+reverb size=80 decay=100
+out vca=7
+
+# SOUNDFILE
+CHAIN soundfile_Trame
+sfplayer name=player1 open=s48_P_P_A_TRAME_4A-2.wav loop=0 speed=1
+sendbus bus=tramecrotale
+out vca=8

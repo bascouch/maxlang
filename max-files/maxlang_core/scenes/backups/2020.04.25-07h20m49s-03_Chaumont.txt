@@ -1,0 +1,83 @@
+SCENE three_chaumont
+
+# on fait une disto sur pedal1
+
+# disto
+CHAIN disto_mrs
+in adc=[1,2]
+disto drive=0.9 offset=0. gain=input(in=pedal1, min=-90., max=6.,curve=-0.2)
+reverb size=30 decay=30 drywet=50
+out vca=1
+
+# granulation
+CHAIN granulle
+in adc=[1,2]
+granul density=13 density-jit=0.2 length=30 delay=700 delay-mod-depth=10 gain=input(in=pedal1, min=-90., max=6.,curve=-0.2)
+reverb size=60 decay=60 drywet=60
+out vca=2
+
+# delay 1
+CHAIN delay_one
+in adc=[1,2]
+delay name=delayseqC time=rand(freq=0.34,min=0.,max=400,varifreq=0.5) freq=randi(freq=10,min=0,max=5000,curve=0.3) gain=3 feedback=25.
+reverb size=70 decay=50 drywet=50
+out vca=3 gain=5
+
+
+# sfplayer
+CHAIN sfplayer
+sfplayer open=s07MeshedMaze.wav play=1 loop=1 gain=lfo(freq=6 min=-8 max=0)
+out vca=7
+
+# sfplayer
+CHAIN sfplayerbis
+sfplayer open=s07MeshedMazeX.wav play=1 loop=1 gain=lfo(freq=0.7 min=-6 max=1)
+out vca=8
+
+
+################
+#### EVENTS ####
+################
+
+EVENTS
+
+ONSTART # when scene is enabled
+
+#    au changement de scene
+#     arret de la disto_mrs
+ONRELEASE
+three_chaumont.disto_mrs fadeout time=3000
+three_chaumont.granulle fadeout time=3000
+three_chaumont.delay_one fadeout time=5000
+three_chaumont.sfplayer fadeout time=5000
+three_chaumont.sfplayerbis fadeout time=5000
+
+# 1
+CUE pedal1
+three_chaumont.disto_mrs fadein time=1000
+# 2
+CUE pedal2
+three_chaumont.disto_mrs fadeoutmute time=3000
+
+# 3
+CUE pedal3
+three_chaumont.granulle fadein time=1000
+# 4
+CUE pedal4
+three_chaumont.granulle fadeoutmute time=3000
+
+# 5
+CUE pedal5
+three_chaumont.delay_one fadein time=3000
+# 6
+CUE pedal6
+three_chaumont.delay_one fadeoutmute time=5000
+
+# 7
+CUE pedal7
+three_chaumont.sfplayer fadein time=2000
+three_chaumont.sfplayerbis fadein time=2000
+#  8
+CUE pedal8
+three_chaumont.sfplayer fadeoutmute time=5000
+three_chaumont.sfplayerbis fadeoutmute time=5000

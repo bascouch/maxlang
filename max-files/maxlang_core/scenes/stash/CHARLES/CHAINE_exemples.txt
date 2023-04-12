@@ -1,0 +1,12 @@
+Ce n'est pas un fichier SCENE ;)-
+
+
+
+# additive long + disto 
+CHAIN additive-disto-long
+in
+filter freq=50
+additive name=addi2 freqtransp=-17 attack=500 decay=1000 freqsmoo=1000 npeak=8 filteramp=-50 gain=midictl(num=86, min=-90., max=6.,curve=-0.5)
+disto drive=0.8 gain=-12
+reverb decay=100
+out vca=2 dac=[1,2] gain=0

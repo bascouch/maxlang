@@ -1,0 +1,35 @@
+start
+  = moddef
+
+moddef 'module definition'
+  = modname:symbol [ ]+  modparams:modparams { return {module: modname, param: modparams} }
+
+
+modparams 'parameter list'
+  = parameters: (parameter ([ ]+ parameter )*) {return parameters}
+
+parameter
+  = pname:symbol [=] value:value { return {pname: pname, value: value}}
+
+value
+  = float
+  / integer
+  / symbol
+  / list
+  / modtor
+
+list
+  = list: "[" (float / integer / symbol ) ("," (float / integer / symbol ))* "]"
+  { return list }
+
+modtor
+  = symbol "(" parameters:(parameter)* ")" {return parameters}
+
+symbol
+  = literal:[0-9a-zA-Z]+ {return literal.join('')}
+
+integer "integer"
+  = digits:[0-9]+ { return parseInt(digits.join(""), 10); }
+
+float "float"
+  = digits:[0-9\\.]+ { return parseFloat(digits.join(""), 10); }

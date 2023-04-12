@@ -1,0 +1,82 @@
+SCENE four_chaumont
+
+
+# filter+
+CHAIN filter+
+in adc=[1,2]
+filter name=filterseqC freq=620 mode=2 width=6.
+reverb size=50 decay=50 width=100 drywet=50
+out vca=1 gain=5
+
+# glouglou-trans
+CHAIN glouglou-trans
+in adc=[1,2]
+svptrans name=svp1 transp=50. transpadd=rand(freq=2.4,min=0.,max=10.) envscale=0.7  sinus=1. error=0.6 envpres=1
+reverb size=60 decay=60 drywet=60
+out vca=2 gain=4
+
+
+# delay 2
+CHAIN delay_two
+in adc=[1,2]
+delay name=delayseqC time=10000 gain=3 feedback=55.gain=midictl(num=86, min=-90., max=6.,curve=-0.5)
+freqshift name=shishi shift=randi(freq=2.5, min=-50, max=50, curve=1)
+reverb size=70 decay=50 drywet=50
+out vca=3 gain=6
+
+# sfplayer
+CHAIN sfplayer
+sfplayer open=s04GreysGaze.wav play=1 loop=1 gain=lfo(freq=4 min=-6 max=0)
+out vca=7
+
+# sfplayer-bis
+CHAIN sfplayerbis
+sfplayer open=s04GreysGazeX.wav play=1 loop=1 gain=lfo(freq=0.6 min=-4 max=1)
+out vca=8
+
+################
+#### EVENTS ####
+################
+
+EVENTS
+
+ONSTART # when scene is enabled
+
+#    au changement de scene
+#     arret de la disto_mrs
+ONRELEASE
+four_chaumont.filter+ fadeout time=3000
+four_chaumont.glouglou-trans fadeout time=3000
+four_chaumont.delay_two fadeout time=5000
+four_chaumont.sfplayer fadeout time=5000
+four_chaumont.sfplayerbis fadeout time=5000
+
+# 1
+CUE pedal1
+four_chaumont.filter+ fadein time=1000
+# 2
+CUE pedal2
+four_chaumont.filter+ fadeoutmute time=3000
+
+# 3
+CUE pedal3
+four_chaumont.glouglou-trans fadein time=1000
+# 4
+CUE pedal4
+four_chaumont.glouglou-trans fadeoutmute time=3000
+
+# 5
+CUE pedal5
+four_chaumont.delay_two fadein time=3000
+# 6
+CUE pedal6
+four_chaumont.delay_two fadeoutmute time=5000
+
+# 7
+CUE pedal7
+four_chaumont.sfplayer fadein time=2000
+four_chaumont.sfplayerbis fadein time=2000
+#  8
+CUE pedal8
+four_chaumont.sfplayer fadeoutmute time=5000
+four_chaumont.sfplayerbis fadeoutmute time=5000

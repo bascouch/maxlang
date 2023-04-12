@@ -1,0 +1,78 @@
+SCENE myscene1
+
+# pitch
+CHAIN mychain1
+in
+additive name=add npeak=2 attack=5 decay=5 freqsmoo=5 hrm=0.2 randdev=20 freqtransp=-24 drywet=89
+freqshift name=shi shift=0.1
+reverb
+out vca=1 dac=[1 2 4 10]
+
+# additive reverb
+CHAIN file
+
+sfplayer open=Rec-20.05.11-09h28m59s.aif loop=1 speed=0.5 play=1 gain=0
+pitchshift chord=[-2400 2400 4800 -4800] transp=randi(min=-100 max=100 freq=0.2) drywet=100 #chord=[-1200 1200 -700 200]
+imager rotation=lfo(min=-45. max=20. freq=0.1 varifreq=2) balance=0.5 width=1.
+reverb drywet=60
+out dac=[1 2] vca=2
+
+
+################
+#### EVENTS ####
+################
+
+EVENTS
+
+ONSTART # when scene is enabled
+
+
+
+ONRELEASE
+
+
+
+# 1
+CUE pedal1
+myscene1.mychain1 fadein time=2000
+
+
+# 2
+CUE pedal2
+myscene1.mychain1.add decay 600
+myscene1.mychain1.shi shift line(min=0.1 max=400 time=120000 curve=0.7)
+
+# 3
+CUE pedal3
+myscene1.mychain1.add decay line(min=600 max=10 time=60000)
+myscene1.mychain1.add hrm line(min=0.2 max=0.9 time=120000)
+
+# 4
+CUE pedal4
+myscene1.mychain1.shi shift line(min=400 max=0.1 time=120000 curve=-1)
+
+# 5
+CUE pedal5
+myscene1.mychain1.add hrm line(min=0.9 max=0.1 curve=0 time=40000)
+
+# 6
+CUE pedal6
+myscene1.mychain1.shi shift lfo(freq=6.4 mode=2 varifreq=0 min=1400. max=3000.)
+
+# 7
+CUE pedal7
+myscene1.file.pitchshift2 chord @nrand(4 -1200 1200)
+
+
+#  8
+CUE pedal8
+myscene1.mychain1 fadeoutmute time=5000
+
+
+#  8
+CUE file-tester
+myscene1.file fadein time=5000 curve=0.5
+
+#  8
+CUE file-tester
+myscene1.file fadeoutmute time=5000

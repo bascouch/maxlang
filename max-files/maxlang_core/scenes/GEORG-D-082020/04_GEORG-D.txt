@@ -1,0 +1,115 @@
+SCENE 04_georg
+#GEORG-D DEDALES D'INTERIEUR II
+
+# psychochoristo
+CHAIN psychochoristo
+in adc=[1,2]
+#psychoirtrist transplist=[0. 1200. 1800.] transp=0 pitchmod=0 voices=8 tempmod=1000
+psychoirtrist transp=-1200 pitchmod=20 voices=8 tempmod=1500
+imager rotation=-10
+out vca=1 dac=[1,2] gain=8
+
+filter+
+CHAIN filtered
+in adc=[1,2]
+filter name=filterseqD freq=900 mode=2 width=12 gain=8
+imager rotation=lfo(mode=2 freq=0.15 min=0. max=160.)
+freqshift shift=-400
+reverb size=50 decay=50 width=100 drywet=50
+out vca=2 dac=[1,2] gain=8
+# dry part of pedal1
+CHAIN filtered-dry
+in adc=[1,2]
+imager rotation=10
+reverb size=50 decay=50 width=100 drywet=50
+out vca=2 dac=[1,2] gain=3
+
+# spec-test
+CHAIN spec-test
+in adc=[1,2] # input Clar
+spectralcompand name=spcomp sinusnoise=100
+svpring  name=ring drywet=50 scrubmode=1 scrub=randi(name=scrubrand min=0 max=5000 freq=0.15)
+multidelay drywet=50 time=100 timeframe=5000 ampdecay=6 seed=CBA
+imager rotation=lfo(mode=3 freq=0.05 min=0.4 max=260.)
+#filter mode=0 freq=9000
+out vca=3 dac=[1,2] gain=13
+
+# multi-trans
+CHAIN multi-trans
+in adc=[1,2]
+pitchshift transp=0 chord=[-1000 -700 -300 200] gain=input(in=pedal1 min=-40. max=10. curve=-0.2)
+reverb size=60 decay=70 damping=20
+out vca=4 dac=[1,2] gain=4
+#[-1000 -700 -300 200]
+# chord=[-1200 -500 -100 200 400]
+# chord=[-300 -100 200 500]
+## chord=[-700 -300 -200 300]
+
+# sfplayer
+CHAIN sfplayer-trans
+sfplayer name=sftr open=HI-Groove-Short.aif play=1 loop=0
+imager rotation=-35
+reverb size=60 decay=40 damping=30
+out vca=7 dac=[1,2] gain=-13
+# sfplayer
+CHAIN sfplayer-trans-two
+sfplayer name=sftrt open=MeshedMaze.wav play=1 loop=1 gain=lfo(freq=0.1 min=-4 max=3)
+imager rotation=0
+reverb size=30 decay=50 damping=40
+out vca=8 dac=[1,2] gain=-9
+
+################
+#### EVENTS ####
+################
+
+EVENTS
+
+ONSTART # when scene is enabled
+
+#    au changement de scene
+#     arret de la disto_mrs
+ONRELEASE
+04_georg.psychochoristo fadeout time=3000 curve=0
+04_georg.filtered fadeout time=4000 curve=0
+04_georg.filtered-dry fadeout time=4000 curve=0
+04_georg.spec-test fadeout time=5000 curve=0
+04_georg.multi-trans fadeout time=3000 curve=0
+04_georg.sfplayer-trans fadeout time=3000 curve=0
+04_georg.sfplayer-trans-two fadeout time=3000 curve=0
+
+# 1
+CUE pedal1
+04_georg.psychochoristo fadein time=1000 curve=0
+# 2
+CUE pedal2
+04_georg.psychochoristo fadeoutmute time=3000 curve=0
+
+# 3
+CUE pedal3
+04_georg.filtered fadein time=1000 curve=0
+04_georg.filtered-dry fadein time=1000 curve=0
+# 4
+CUE pedal4
+04_georg.filtered fadeoutmute time=3000 curve=0
+04_georg.filtered-dry fadeoutmute time=3000 curve=0
+
+# 5
+CUE pedal5
+04_georg.spec-test fadein time=3000 curve=0
+# 6
+CUE pedal6
+04_georg.spec-test fadeoutmute time=5000 curve=0
+
+# 7
+CUE pedal7
+04_georg.multi-trans fadein time=3000 curve=0
+30000
+04_georg.sfplayer-trans-two fadein time=6000 curve=0
+40000
+04_georg.sfplayer-trans fadein time=6000 curve=0
+
+#  8
+CUE pedal8
+04_georg.multi-trans fadeoutmute time=5000 curve=0
+04_georg.sfplayer-trans fadeout time=10000 curve=0
+04_georg.sfplayer-trans-two fadeout time=10000 curve=0

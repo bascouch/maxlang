@@ -1,0 +1,34 @@
+SCENE chtest
+
+CHAIN spec
+sfplayer open=04bir.robinsonUCHAIN.aif play=1 loop=1 gain=6
+spectralcompand name=spcomp sinusnoise=100
+svpring  name=ring drywet=50 scrubmode=1 scrub=randi(name=scrubrand min=0 max=5000 freq=0.15)
+#multidelay drywet=50 time=100 timeframe=2000 ampdecay=1 seed=CBA
+out
+
+EVENTS
+
+ONSTART
+
+ONRELEASE
+
+CUE c1
+
+chtest.spec fadein
+
+CUE c2
+chtest.spec fadeoutmute
+
+CUE c3
+chtest.spec.spcomp sinusnoise 0
+
+CUE c4
+
+chtest.spec.ring scrub parameter scrubrand.freq 6
+
+CUE c5
+chtest.spec.spcomp sinusnoise 98
+chtest.spec.spcomp tilt -1.7
+chtest.spec.ring feedback 89
+chtest.spec.ring scrub lfo(min=0 max=5000 mode=2 freq=0.2 name=scrubrand)

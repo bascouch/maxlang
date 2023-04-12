@@ -1,0 +1,236 @@
+//
+//  maxlang.grammar.hpp
+//  maxlang.modulator
+//
+//  Created by charles on 23/03/2020.
+//
+
+#ifndef maxlang_grammar_h
+#define maxlang_grammar_h
+
+#include <string>
+#include <iostream>
+
+#include <tao/pegtl.hpp>
+#include <tao/pegtl/contrib/parse_tree.hpp>
+
+
+namespace pegtl = tao::pegtl;
+
+
+namespace maxlang
+{
+    
+    struct seps : pegtl::star< pegtl::blank > {};
+    
+    struct key_bool_true : TAO_PEGTL_KEYWORD( "true" ) {};
+    struct key_bool_false : TAO_PEGTL_KEYWORD( "false" ) {};
+    
+    struct litteral : pegtl::plus<pegtl::alpha> {};
+    struct lidentifier : pegtl::plus<pegtl::sor<pegtl::alnum,pegtl::one<'-'>,pegtl::one<'_'>,pegtl::one<'.'>>> {};
+
+    
+    // Values
+    struct double_value : pegtl::seq<
+    pegtl::sor<
+        pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::plus< pegtl::digit > , pegtl::one<'.'>, pegtl::plus<pegtl::digit> >,
+        pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::one<'.'>, pegtl::plus<pegtl::digit> >,
+        pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::plus< pegtl::digit > , pegtl::one<'.'> >,
+        pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::plus< pegtl::digit > >
+        >
+    , pegtl::not_at<lidentifier>
+    >
+    {};
+    struct int_value :  pegtl::seq< pegtl::opt< pegtl::one< '+', '-' > >, seps, pegtl::plus< pegtl::digit, pegtl::not_at<lidentifier> > > {};
+    struct bool_value : pegtl::sor<
+    pegtl::seq<key_bool_true>,
+    pegtl::seq<key_bool_false>,
+    pegtl::one< '0' >,
+    pegtl::one< '1' >
+    >{};
+    struct positive_int_value : pegtl::seq< pegtl::opt< pegtl::one< '+' > >, seps, pegtl::plus< pegtl::digit > > {};
+    
+    
+    struct modtor_argument_value;
+    
+    struct list_value : pegtl::list<pegtl::sor<double_value,  int_value>, seps> {};
+    struct list_expression : pegtl::seq< seps, pegtl::one<'['>,seps, list_value,seps, pegtl::one<']'>, seps > {};
+    
+    
+    // modtor specific
+    struct modtor_expression;
+    struct modtor_def;
+    struct modtor_operator_argument;
+    struct modtor_operator_expression;
+    struct modtor_expression_arithm;
+
+    struct modtor_argument_value : pegtl::sor<double_value,  int_value,  list_expression, bool_value, modtor_expression_arithm, lidentifier > {};
+    struct modtor_argument_name : litteral {};
+    
+    struct modtor_argument_variable_name : litteral {};
+
+    struct modtor_argument_variable : pegtl::seq< pegtl::one<'$'>, modtor_argument_variable_name > {};
+
+    struct modtor_expression_num_value : pegtl::sor<double_value,  int_value, modtor_argument_variable, modtor_def > {};
+
+    struct modtor_operator :  pegtl::sor<pegtl::one<'+'>, pegtl::one<'-'>, pegtl::one<'*'>, pegtl::one<'/'> >  {};
+
+
+    struct modtor_type : litteral {};
+    
+    struct modtor_argument : pegtl::seq< modtor_argument_name, seps, pegtl::one<'='>, seps, modtor_argument_value, seps > {};
+    
+    struct modtor_arguments : pegtl::seq<pegtl::one<'('>, seps, pegtl::star<modtor_argument>, seps, pegtl::one<')'>> {};
+    
+    struct modtor_def : pegtl::seq< seps, modtor_type, seps, modtor_arguments > {};
+        
+    struct modtor_operator_expression_brack : pegtl::seq<pegtl::one<'('>, seps, modtor_operator_expression, seps, pegtl::one<')'> >  {};
+
+    struct modtor_operator_argument : pegtl::sor<modtor_expression_num_value, modtor_operator_expression_brack>  {};
+
+    struct modtor_operator_expression : pegtl::seq<seps,modtor_operator_argument, seps, modtor_operator, seps, modtor_operator_argument >  {};
+    
+    struct modtor_expression_arithm : pegtl::sor<modtor_operator_expression,modtor_operator_expression_brack,modtor_def> {};
+    
+    struct modtor_expression_start : pegtl::seq<seps, modtor_expression_arithm, seps, pegtl::eolf> {};
+    struct modtor_def_start : pegtl::seq<seps, modtor_def, seps, pegtl::eolf> {};
+
+    
+    struct modtor_start : pegtl::sor< modtor_def_start,modtor_expression_start > {};
+    
+    struct modtor_argument_value_start : pegtl::must< seps, modtor_argument_value, seps, pegtl::eolf > {};
+    
+
+    // macro specific
+
+    struct macro_arguments : pegtl::seq<pegtl::one<'('>, seps, pegtl::opt<list_value>, seps, pegtl::one<')'>> {};
+    struct macro_type_name : litteral {};
+    struct macro_type : pegtl::seq< pegtl::one<'@'>, macro_type_name > {};
+    struct macro_def : pegtl::seq< seps, macro_type, seps, macro_arguments > {};
+    
+    struct macro_unmatched : pegtl::plus< pegtl::not_one<'@'> >{};
+    struct macro_start : pegtl::seq< pegtl::plus< pegtl::sor< macro_unmatched , macro_def> >, pegtl::eolf > {};
+
+    // Rules for constructing the parse tree
+    //
+
+    template< typename Rule >
+    struct action
+    {};
+    
+    // Specialisation of the user-defined action to do
+    // something when the 'name' rule succeeds; is called
+    // with the portion of the input that matched the rule.
+    
+    template<>
+    struct action< modtor_argument >
+    {
+        template< typename Input >
+        static void apply( const Input& in, std::string& v )
+        {
+            v += " " + in.string();
+            post("modtor_argument : %s",in.string().c_str());
+        }
+    };
+    
+    template<>
+    struct action< modtor_type >
+    {
+        template< typename Input >
+        static void apply( const Input& in, std::string& v )
+        {
+            v += " " + in.string();
+            post("modtor_type : %s",in.string().c_str());
+        }
+    };
+    
+    template<>
+    struct action< modtor_argument_value >
+    {
+        template< typename Input >
+        static void apply( const Input& in, std::string& v )
+        {
+            v += " " + in.string();
+            post("modtor_argument_value : %s",in.string().c_str());
+        }
+    };
+    
+    template<>
+    struct action< modtor_argument_name >
+    {
+        template< typename Input >
+        static void apply( const Input& in, std::string& v )
+        {
+            v += " " + in.string();
+            post("modtor_argument_name : %s",in.string().c_str());
+        }
+    };
+    
+    template<>
+    struct action< list_value >
+    {
+        template< typename Input >
+        static void apply( const Input& in, std::string& v )
+        {
+            v += " " + in.string();
+            post("modtor_list_value : %s",in.string().c_str());
+        }
+    };
+    
+    
+    
+    // by default, nodes are not generated/stored
+    template< typename > struct store : std::false_type {};
+    // select which rules in the grammar will produce parse tree nodes:
+    template<> struct store<double_value> : std::true_type {};
+    template<> struct store<bool_value> : std::true_type {};
+    template<> struct store<int_value> : std::true_type {};
+    template<> struct store<positive_int_value> : std::false_type {};
+    template<> struct store<lidentifier> : std::true_type {};
+    template<> struct store<modtor_type> : std::true_type {};
+    template<> struct store<modtor_arguments> : std::true_type {};
+    template<> struct store<modtor_argument> : std::true_type {};
+    template<> struct store<modtor_argument_name> : std::true_type {};
+    template<> struct store<modtor_argument_value> : std::true_type {};
+    template<> struct store<list_expression> : std::true_type {};
+    template<> struct store<modtor_argument_variable> : std::true_type {};
+    //template<> struct store<modtor_expression_num_value> : std::true_type {};
+    template<> struct store<modtor_operator_expression> : std::true_type {};
+    template<> struct store<modtor_operator> : std::true_type {};
+    template<> struct store<modtor_operator_argument> : std::true_type {};
+    template<> struct store<modtor_def> : std::true_type {};
+
+    template<> struct store<macro_def> : std::true_type {};
+    template<> struct store<macro_type_name> : std::true_type {};
+    template<> struct store<macro_unmatched> : std::true_type {};
+
+
+    // clang-format on
+    
+    void print_node( const pegtl::parse_tree::node& n, const std::string& s = "" )
+    {
+        // detect the root node:
+        if( n.is_root() ) {
+            std::cout << "ROOT" << std::endl;
+        }
+        
+        else {
+            if( n.has_content() ) {
+                std::cout << s << n.type << " \"" << n.string() << "\" at " << n.begin() << " to " << n.end() << std::endl;
+            }
+            else {
+                std::cout << s << n.source << " at " << n.begin() << std::endl;
+            }
+        }
+        // print all child nodes
+        if( !n.children.empty() ) {
+            const auto s2 = s + "  ";
+            for( auto& up : n.children ) {
+                print_node( *up, s2 );
+            }
+        }
+    }
+    
+}  // namespace maxlang
+
+#endif /* maxlang_grammar_h */

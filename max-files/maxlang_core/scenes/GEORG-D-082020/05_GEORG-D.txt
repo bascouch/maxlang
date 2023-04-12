@@ -1,0 +1,106 @@
+SCENE 05_georg
+#GEORG-D HEURTS et Perils I
+
+# multi-trans-army
+CHAIN multi-trans-army
+in adc=[1,2]
+pitchshift transp=0 chord=[-1200 -400 300 700] gain=input(in=pedal1 min=-40. max=10. curve=-0.2)
+imager rotation=-20
+reverb size=80 decay=100 damping=20
+out vca=1 dac=[1,2] gain=4
+
+# multi-trans-army2
+CHAIN multi-trans-army-two
+in adc=[1,2]
+pitchshift transp=200 chord=[-1200 -400 300 700] gain=input(in=pedal1 min=-40. max=10. curve=-0.2)
+imager rotation=lfo(mode=3 freq=0.05 min=0. max=360.)
+reverb size=60 decay=80 damping=40
+out vca=2 dac=[1,2] gain=4
+
+# svptransouf (harmon)
+CHAIN svptransoufff
+in adc=[1,2] gain=4
+delay time=0.
+svptrans name=svp1 transp=rand(freq=0.4 min=0. max=10.) envscale=lfo(freq=0.02 min=0.7 max=1.7 curve=0.1) sinus=1. error=0.2 gain=0
+imager rotation=10
+reverb size=60 decay=85 damping=50 drywet=40
+filter name=outfilter mode=1 freq=1700 width=50
+out vca=3 dac=[1,2] gain=12
+
+#pitch = groove 1
+CHAIN transpolfofo
+in adc=[1,2] # input Clar
+filter name=filterseqC freq=randi(min=50 max=200 freq=0.1 curve=0.2) mode=3 width=7
+delay name=delayseqC time=rand(freq=3 varifreq=0.5 min=0 max=2000 curve=0.6) drywet=30 feedback=70
+freqshift name=shishi shift=randi(name=gigilfo,freq=6 min=-100 max=100 curve=0)
+reverb size=120 decay=75 drywet=50
+out vca=4 dac=[1,2] gain=0
+# svptransouf
+CHAIN svptransouf
+in adc=[1,2] # input Clar
+delay time=0
+svptrans name=svp1 transp=rand(freq=0.4 min=0. max=10.) envscale=lfo(freq=0.02 min=0.6 max=1.7 curve=0.05) sinus=1. error=0.2 gain=0
+reverb size=30 decay=75 damping=30 drywet=20
+filter name=outfilter mode=2 freq=1800 width=90
+out vca=4 dac=[1,2] gain=lfo(mode=2 freq=randi(min=3 max=12 freq=1) min=-18. max=4. pw=0.5)
+# shiftsimple
+CHAIN shiftsimple
+in adc=[1,2] # input Clar
+receivebus bus=tramecrotale
+freqshift shift=randi(min=-1000 max=-800 freq=0.1)
+reverb size=80 decay=100
+out vca=4 dac=[1,2] gain=8
+
+################
+#### EVENTS ####
+################
+
+EVENTS
+
+ONSTART # when scene is enabled
+
+## Quand on quitte la scene
+# extinction de toutes les chaines
+ONRELEASE
+05_georg.multi-trans-army fadeoutmute time=7000 curve=1
+05_georg.multi-trans-army-two fadeoutmute time=7000 curve=1
+05_georg.svptransoufff fadeoutmute time=7000 curve=1
+05_georg.transpolfofo fadeoutmute time=10000 curve=0
+05_georg.svptransouf fadeoutmute time=12000 curve=0
+05_georg.shiftsimple fadeoutmute time=15000 curve=0
+
+# 1
+CUE pedal1
+05_georg.multi-trans-army enable 1
+05_georg.multi-trans-army fadein time=1000. curve=1
+# 2
+CUE pedal2
+05_georg.multi-trans-army fadeoutmute time=6000 curve=1
+
+# 3
+CUE pedal3
+05_georg.multi-trans-army-two enable 1
+05_georg.multi-trans-army-two fadein time=1000. curve=1
+# 4
+CUE pedal4
+05_georg.multi-trans-army-army-two fadeoutmute time=6000 curve=1
+
+# 5
+CUE pedal5
+05_georg.svptransoufff enable 1
+05_georg.svptransoufff fadein time=1000.
+# 6
+CUE pedal6
+05_georg.svptransoufff fadeoutmute time=6000 curve=0
+
+# 7
+CUE pedal7
+05_georg.transpolfofo fadein time=1000 curve=1
+05_georg.svptransouf fadein time=5000 curve=0.2
+05_georg.shiftsimple fadein time=3000 curve=0.4
+
+#  8
+CUE pedal8
+05_georg.transpolfofo fadeoutmute time=6000 curve=0.4
+05_georg.svptransouf fadeoutmute time=6000 curve=0.4
+05_georg.shiftsimple fadeoutmute time=6000 curve=0.4

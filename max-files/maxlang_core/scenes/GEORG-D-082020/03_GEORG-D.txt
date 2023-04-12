@@ -1,0 +1,105 @@
+SCENE 03_georg
+#GEORG-D DEDALES D'INTERIEUR I
+
+# on fait une disto sur pedal1
+
+# high groove
+CHAIN twist
+in adc=[1,2] # input Clar
+gizmo ratio=42. gain=input(in=pedal1 num=86 min=-70. max=12. curve=-0.5)
+imager rotation=lfo(mode=3 freq=0.05 min=0. max=360.)
+reverb size=90 decay=80 drywet=70
+out vca=1 dac=[1,2] gain=6
+CHAIN spring
+in
+delay time=rand(freq=0.2 varifreq=1. min=0. max=800) feedback=20
+imager rotation=0
+reverb size=80 decay=100
+out vca=1 dac=[1,2] gain=4
+
+# mdelay-add
+CHAIN mdelay-add
+in adc=[1,2] # input Clar
+filter freq=50
+multidelay ingain=6 time=100 timeframe=7000 drywet=80 gain=5
+additive name=addi2 freqtransp=randi(freq=0.3 varifreq=0.4 mode=2 min=-15 max=2) attack=100 decay=3000 freqsmoo=7000 npeak=8 filteramp=-50 gain=input(in=pedal1 min=-90. max=6. curve=-0.2)
+disto drive=0.1 offset=0. gain=-12
+reverb decay=110
+out vca=2 dac=[1,2] gain=3
+
+# additive reverb
+CHAIN transpolfofo
+in adc=[1,2] # input Clar
+imager rotation=-20
+filter name=filterseqC freq=randi(min=50 max=200 freq=0.1 curve=0.2) mode=3 width=7
+delay name=delayseqC time=rand(freq=3 varifreq=0.5 min=1700 max=2000 curve=0.6) drywet=30 feedback=40
+# pedal sur le randi du shift
+freqshift name=shishi shift=randi(name=gigilfo freq=input(in=pedal1 min=0.5 max=12. curve=0.2) min=input(in=pedal1 min=-10. max=-100.) max=input(in=pedal1 min=10. max=100.) curve=0 segcurve=-0.5)
+reverb size=120 decay=75 drywet=50 width=80
+out vca=3 dac=[1,2] gain=5
+
+# multi slides
+CHAIN slides
+in adc=[1 2] # input Clar
+additive npeak=16 attack=100 decay=5000 freqtransp=24. freqshift=-200 freqsmoo=5000
+imager rotation=lfo(mode=3 freq=0.05 min=0. max=360.)
+reverb size=68 decay=90 damping=30 drywet=100
+out vca=4 dac=[1 2] gain=6
+CHAIN slides-choir
+in adc=[1 2] # input Clar
+pitchshift chord=[-500 -100 200 400]
+imager rotation=lfo(mode=3 freq=0.05 min=0. max=360.)
+reverb size=100 decay=90 damping=30 drywet=30
+out vca=4 dac=[1 2] gain=-2
+#[1300 1400 2300 1500]
+
+
+################
+#### EVENTS ####
+################
+
+EVENTS
+
+ONSTART # when scene is enabled
+
+#    au changement de scene
+#     arret de la disto_mrs
+ONRELEASE
+03_georg.twist fadeoutmute time=3000 curve=0
+03_georg.spring fadeoutmute time=3000 curve=0
+03_georg.mdelay-add fadeoutmute time=10000 curve=0
+03_georg.transpolfofo fadeoutmute time=5000 curve=0
+03_georg.slides fadeoutmute time=15000 curve=0
+03_georg.slides-choir fadeoutmute time=7000 curve=0
+
+# 1
+CUE pedal1
+03_georg.twist fadein time=1000 curve=0
+03_georg.spring fadein time=1000 curve=0
+# 2
+CUE pedal2
+03_georg.twist fadeoutmute time=6000 curve=0.3
+03_georg.spring fadeoutmute time=6000 curve=0
+
+# 3
+CUE pedal3
+03_georg.mdelay-add fadein time=5000 curve=0
+# 4
+CUE pedal4
+03_georg.mdelay-add fadeoutmute time=7000 curve=0
+
+# 5
+CUE pedal5
+03_georg.transpolfofo fadein time=3000 curve=0
+# 6
+CUE pedal6
+03_georg.transpolfofo fadeoutmute time=7000 curve=0
+
+# 7
+CUE pedal7
+03_georg.slides fadein time=3000 curve=0
+03_georg.slides-choir fadein time=5000 curve=0
+#  8
+CUE pedal8
+03_georg.slides fadeoutmute time=7000 curve=0
+03_georg.slides-choir fadeoutmute time=7000 curve=0

@@ -1,0 +1,88 @@
+SCENE 02_chaumont
+
+# twist
+CHAIN twist
+in adc=[1,2] # input Clar
+gizmo ratio=42. gain=midictl(num=86, min=-70., max=12.,curve=-0.2)
+reverb size= 90 decay=80 drywet=70
+out vca=1 dac=[1,2]
+
+
+# spring
+CHAIN spring
+in
+delay time=rand(freq=0.2, varifreq=1., min=0., max=800) feedback=20
+reverb size=80 decay=100
+out vca=2 dac=[1,2] gain=6
+
+# additive reverb
+CHAIN additiveitiv
+in
+filter freq=50
+additive name=addi2 freqtransp=randi(freq=1.5,varifreq=0.4,mode=2,min=-6,max=32) attack=10 decay=300 freqsmoo=2 npeak=8 filteramp=-50 gain=input(in=pedal1, min=-90., max=6.,curve=-0.2)
+reverb decay=110
+out vca=3 dac=[1,2]
+
+# sfplayer
+CHAIN sfplayer
+sfplayer open=s01quiver.wav play=1 loop=1 gain=lfo(freq=5 min=-10 max=0)
+out vca=7
+
+# sfplayer
+CHAIN sfplayerbis
+sfplayer open=s01quiverX.wav play=1 loop=1 gain=lfo(freq=0.2 min=-9 max=1)
+out vca=8
+
+
+################
+#### EVENTS ####
+################
+
+EVENTS
+
+ONSTART # when scene is enabled
+
+
+
+ONRELEASE
+02_chaumont.twist fadeoutmute time=2000 curve=1
+02_chaumont.spring fadeoutmute time=2000 curve=1
+02_chaumont.additiveitiv fadeoutmute time=2000 curve=1
+
+
+
+# 1
+CUE pedal1
+02_chaumont.twist fadein time=100. curve=1
+# 2
+CUE pedal2
+02_chaumont.twist fadeoutmute time=2000 curve=1
+
+
+# 3
+CUE pedal3
+02_chaumont.spring fadein time=100. curve=1
+# 4
+CUE pedal4
+02_chaumont.spring fadeoutmute time=2000 curve=1
+
+
+# 5
+CUE pedal5
+02_chaumont.additiveitiv fadein time=100. curve=1
+02_chaumont.additiveitiv fadein time=7000. curve=1
+# 6
+CUE pedal6
+02_chaumont.additiveitiv fadeoutmute time=2000 curve=1
+02_chaumont.additiveitiv fadeoutmute time=9000 curve=1
+
+
+# 7
+CUE pedal7
+02_chaumont.sfplayer fadein time=100. curve=1
+02_chaumont.sfplayerbis fadein time=7000. curve=1
+
+#  8
+CUE pedal8
+02_chaumont.sfplayer fadeoutmute time=2000 curve=1
+02_chaumont.sfplayerbis fadeoutmute time=9000 curve=1

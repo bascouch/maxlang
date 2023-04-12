@@ -1,0 +1,56 @@
+SCENE myscene1
+
+# pitch
+CHAIN mychain1
+in
+freqshift shift=randi(freq=2, min=-20.,max=20.)
+additive npeak=2 attack=5 decay=5 freqsmoo=5 hrm=0.2 randdev=20 freqtransp=-24
+reverb
+out vca=1 dac=[1,2,4,10]
+
+# additive reverb
+CHAIN mychain2
+in
+out dac=[3,2]
+
+
+################
+#### EVENTS ####
+################
+
+EVENTS
+
+ONSTART # when scene is enabled
+
+
+
+ONRELEASE
+
+
+
+# 1
+CUE pedal1
+myscene1.mychain1 fadein time=2000
+
+
+# 2
+CUE pedal2
+myscene1.mychain1 fadeoutmute time=5000
+
+# 3
+CUE pedal3
+
+# 4
+CUE pedal4
+
+# 5
+CUE pedal5
+
+# 6
+CUE pedal6
+
+# 7
+CUE pedal7
+
+#  8
+CUE pedal8

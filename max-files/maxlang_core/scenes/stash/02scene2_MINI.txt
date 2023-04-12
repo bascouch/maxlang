@@ -1,0 +1,56 @@
+SCENE myscene2
+
+# pitch
+CHAIN mychain1
+in
+multidelay drywet=50 feedback=50 name=mdelay-scen1 timeframe=100 ampdecay=80 seed=CBA time=rand(freq=10,varifreq=0.5 ,min=0,max=700,curve=2)
+freqshift shift=randi(freq=3, min=-10.,max=10.)
+reverb
+out vca=2 gain=10 dac=[1,2]
+
+
+# additive reverb
+CHAIN mychain2
+
+
+
+################
+#### EVENTS ####
+################
+
+EVENTS
+
+ONSTART # when scene is enabled
+
+
+
+ONRELEASE
+
+
+
+# 1
+CUE pedal1
+myscene2.mychain1 fadein time=2000
+
+
+# 2
+CUE pedal2
+myscene2.mychain1 fadeoutmute time=5000
+
+# 3
+CUE pedal3
+
+# 4
+CUE pedal4
+
+# 5
+CUE pedal5
+
+# 6
+CUE pedal6
+
+# 7
+CUE pedal7
+
+#  8
+CUE pedal8

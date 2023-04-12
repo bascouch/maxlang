@@ -1,0 +1,102 @@
+SCENE 06_georg
+#GEORG-D HEURTS et Perils II
+
+# multidelay-gran
+CHAIN multidelay-gran
+in adc=[1,2] # input Clar
+multidelay ingain=1 time=500 timeframe=6000 timecurve=2 ampdecay=7 feedback=20 drywet=50
+granul density=8 density-jit=1 freeze=0 spat-jit=0.5
+imager rotation=-20
+reverb size=90 decay=80 drywet=70
+out vca=1 dac=[1,2] gain=4
+
+# psychochoristo low
+CHAIN psychochoristoto
+in adc=[1,2] # input Clar
+#psychoirtrist transp-list=[0. 1200. 1800.] transp=0 pitchmod=0 voices=8 tempmod=1000
+psychoirtrist transp=-1200 pitchmod=20 voices=8 tempmod=1500
+reverb size=90 decay=100 drywet=70
+out vca=2 dac=[1,2] gain=15
+
+# short trans delay
+CHAIN short-trans-delay
+in adc=[1,2]
+delay name=delayseqC time=rand(min=500 max=1000 curve=0)
+freqshift name=shishi shift=randi(freq=0.5 min=0 max=500 curve=1)
+pitchshift trans=rand(min=300 max=400)
+reverb width=30 drywet=40 decay=100
+out vca=3 dac=[1,2] gain=6
+
+# test 3
+CHAIN basse-disto
+in adc=[1,2] # input Clar
+filter mode=0 freq=400
+disto drive=0.85 offset=0.9
+reverb size=60 decay=90 damping=30 drywet=30
+filter mode=1 freq=420
+imager rotation=-35
+out vca=4 dac=[1,2] gain=input(in=pedal1 min=-24. max=6. curve=-0.4)
+CHAIN basse-disto-dry
+in adc=[1,2] # input Clar
+filter mode=1 freq=420
+imager rotation=lfo(mode=2 freq=0.15 min=0. max=160.)
+reverb size=60 decay=95 damping=50 drywet=50
+out vca=4 dac=[1,2] gain=6
+
+# sfplayer
+#CHAIN sfplayer
+#sfplayer open=CH2-1-3-hi-groove.aif play=1 loop=1 gain=lfo(freq=5 min=-10 max=0)
+#out vca=7 dac=[1,2]
+
+
+################
+#### EVENTS ####
+################
+
+EVENTS
+
+ONSTART # when scene is enabled
+
+
+
+ONRELEASE
+06_georg.multidelay-gran fadeoutmute time=9000 curve=0.5
+06_georg.psychochoristoto fadeoutmute time=6000 curve=0.5
+06_georg.short-trans-delay fadeoutmute time=8000 curve=0.5
+06_georg.basse-disto fadeoutmute time=6000 curve=0.5
+06_georg.basse-disto-dry fadeoutmute time=6000 curve=0.5
+#06_georg.sfplayer fadeoutmute time=6000 curve=0.5
+# 1
+CUE pedal1
+06_georg.multidelay-gran fadein time=0. curve=1
+# 2
+CUE pedal2
+06_georg.multidelay-gran fadeoutmute time=0 curve=0.5
+
+
+# 3
+CUE pedal3
+06_georg.psychochoristoto fadein time=100. curve=1
+# 4
+CUE pedal4
+06_georg.psychochoristoto fadeoutmute time=6000 curve=0.5
+
+# 5
+
+CUE pedal5
+06_georg.short-trans-delay fadein time=1000. curve=1
+# 6
+CUE pedal6
+06_georg.short-trans-delay fadeoutmute time=6000 curve=0.5
+
+# 7
+
+CUE pedal7
+06_georg.basse-disto fadein time=100. curve=1
+06_georg.basse-disto-dry fadein time=100. curve=1
+#06_georg.sfplayer fadein time=100. curve=1
+#  8
+CUE pedal8
+06_georg.basse-disto fadeoutmute time=6000 curve=1
+06_georg.basse-disto-dry fadeoutmute time=6000 curve=1
+#06_georg.sfplayer fadeoutmute time=100. curve=1

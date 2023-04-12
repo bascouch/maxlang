@@ -1,0 +1,51 @@
+{
+  "_buildCommand2" : {
+    "command" : "prepareForIndexing",
+    "enableIndexBuildArena" : false,
+    "targets" : null
+  },
+  "buildCommand" : "build",
+  "configuredTargets" : [
+    {
+      "guid" : "9b8d614901d9b1788cd5c570550395076cffe48f6654721d2ec8337daaaa101c"
+    },
+    {
+      "guid" : "9b8d614901d9b1788cd5c570550395078f6e7beadd0176ee6a4dc601e01aa881"
+    },
+    {
+      "guid" : "9b8d614901d9b1788cd5c57055039507df62bb9ba65de1f9a898c133f9ee9579"
+    }
+  ],
+  "containerPath" : "/Users/charles/Documents/Max 8/Packages/max-sdk/source/cb/maxlang.modulator/build/maxlang.modulator.xcodeproj",
+  "continueBuildingAfterErrors" : true,
+  "enableIndexBuildArena" : false,
+  "hideShellScriptEnvironment" : false,
+  "parameters" : {
+    "action" : "build",
+    "arenaInfo" : {
+      "buildIntermediatesPath" : "",
+      "buildProductsPath" : "",
+      "derivedDataPath" : "/Users/charles/Library/Developer/Xcode/DerivedData",
+      "indexDataStoreFolderPath" : "/Users/charles/Library/Developer/Xcode/DerivedData/maxlang.modulator-hintujiqgnutdubuidmbpocajsex/Index.noindex/DataStore",
+      "indexEnableDataStore" : true,
+      "indexPCHPath" : "/Users/charles/Library/Developer/Xcode/DerivedData/maxlang.modulator-hintujiqgnutdubuidmbpocajsex/Index.noindex/PrecompiledHeaders",
+      "pchPath" : ""
+    },
+    "configurationName" : "Debug",
+    "overrides" : {
+      "synthesized" : {
+        "table" : {
+          "ENABLE_PREVIEWS" : "NO"
+        }
+      }
+    }
+  },
+  "qos" : "default",
+  "schemeCommand" : "launch",
+  "schemeCommand2" : "launch",
+  "showNonLoggedProgress" : true,
+  "useDryRun" : true,
+  "useImplicitDependencies" : true,
+  "useLegacyBuildLocations" : false,
+  "useParallelTargets" : true
+}

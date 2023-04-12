@@ -1,0 +1,13 @@
+codecov:
+  ci:
+    - github.com
+
+ignore:
+  - "**/*/dist/*.js"
+  - "**/*.{spec,test}.js"
+  - "**/*.eslintrc.js"
+  - "{public,website}/**/*.js"
+
+parsers:
+  javascript:
+    enable_partials: yes

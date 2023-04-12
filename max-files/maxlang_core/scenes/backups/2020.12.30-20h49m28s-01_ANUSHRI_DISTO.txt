@@ -1,0 +1,83 @@
+SCENE ANUSH
+
+# pitch
+CHAIN dry
+in adc=[1 1]
+out vca=1
+
+# pitch
+CHAIN additive
+in adc=[1 1]
+additive npeak=5 decay=100 freqtransp=12 hrm=0.1
+reverb decay=70
+out vca=2
+
+# pitch
+CHAIN additive2
+in adc=[1 1]
+additive npeak=3 decay=200 freqtransp=-12 hrm=0.3
+reverb
+out vca=3
+
+# additive reverb
+CHAIN file
+sfplayer open=s04GreysGazeX.wav loop=1 play=1 gain=6
+#spectralcompand sinusnoise=0 threshold=lfo(min=-60. max=-20. freq=0.2)
+sendbus bus=file
+imager rotation=randi(min=-90 max=90 freq=0.5) width=1 balance=0
+out gain=0
+
+CHAIN file_side
+receivebus bus=file
+filter freq=2000 mode=2 width=12 gain=24
+imager rotation=randi(min=-90 max=90 freq=0.5) width=1 balance=0
+out vca=2
+
+################
+#### EVENTS ####
+################
+
+EVENTS
+
+ONSTART # when scene is enabled
+
+
+
+ONRELEASE
+
+
+
+# 1
+CUE pedal1
+ANUSH.dry fadein time=10
+
+
+# 2
+CUE pedal2
+ANUSH.dry fadeout time=10
+
+# 3
+CUE pedal3
+ANUSH.additive fadein time=10
+
+
+# 4
+CUE pedal4
+ANUSH.additive2 fadein time=10
+
+# 4
+CUE ROTOTOT
+ANUSH.file fadeoutmute
+ANUSH.file_side fadeoutmute time=@rand(100 1000)
+
+# 5
+CUE pedal5
+
+# 6
+CUE pedal6
+
+# 7
+CUE pedal7
+
+#  8
+CUE pedal8

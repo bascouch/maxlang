@@ -1,0 +1,62 @@
+{
+  function extractOptional(optional, index) {
+    return optional ? optional[index] : null;
+  }
+
+  function extractList(list, index) {
+    return list.map(function(element) { return element[index]; });
+  }
+
+  function buildList(head, tail, index) {
+    return [head].concat(extractList(tail, index))
+      .filter(function(element) { return element !== null; });
+  }
+
+  function buildExpression(head, tail) {
+    return tail.reduce(function(result, element) {
+      return {
+        type: "Expression",
+        operator: element[0],
+        left: result,
+        right: element[1]
+      };
+    }, head);
+  }
+}
+
+
+
+start 'start rule'
+  = moddef
+
+moddef 'module definition'
+  = modname:symbol modparams:(_ parameter)* { return {module: modname, param: extractList(modparams,1)} }
+
+parameter 'parameter'
+  = pname:symbol _ [=] _ value:value { return {pname: pname, value: value}}
+
+value 'value'
+  = float
+  / integer
+  / modtor
+  / symbol
+  / list
+
+list 'list'
+  =  "[" _ list:((float / integer / symbol ) _ ","* )* "]"
+  { return extractList(list,0) }
+
+modtor 'modulator'
+  = name:symbol  "(" parameters:( _ parameter _ ','* )* ")" {return {modtor: name, param: extractList(parameters,1)}}
+
+symbol 'symbol'
+  = literal:[0-9a-zA-Z]+ {return literal.join('')}
+
+integer 'integer'
+  = digits:[0-9]+ { return parseInt(digits.join(""), 10); }
+
+float 'float'
+  = digits:[0-9\\.]+ { return parseFloat(digits.join(""), 10); }
+
+_ 'whitespace'
+  = [ \t\n\r]*

@@ -1,0 +1,22 @@
+SCENE chtest
+
+CHAIN spec
+sfplayer open=04bir.robinsonUCHAIN.aif play=1 loop=1
+spectralcompand sinusnoise=100 threshold=lfo(min=-60. max=-20. freq=0.2)
+svpring  drywet=80 scrubmode=1 scrub=randi(min=0 max=5000 freq=0.15) 
+out
+
+EVENTS
+
+ONSTART
+
+ONRELEASE
+
+CUE c1
+
+chtest.spec fadein
+
+CUE c2
+chtest.spec fadeoutmute
+
+CUE c3

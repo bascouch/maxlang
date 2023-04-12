@@ -1,0 +1,98 @@
+SCENE 06_georg
+#GEORG-B
+
+# multidelay-gran
+CHAIN multidelay-gran
+in adc=[1,2] # input Clar
+multidelay ingain=9 time=500 timeframe=6000 timecurve=2 ampdecay=7 feedback=20 drywet=50
+granul density=8 density-jit=2 freeze=0 spat-jit=0.5
+reverb size=90 decay=80 drywet=70
+out vca=1 dac=[1,2] gain=6
+
+CHAIN spec
+in adc=[1,2]
+spectralcompand name=spcomp sinusnoise=70 tilt=-1.5
+svpring  name=ring drywet=50 scrubmode=1 scrub=randi(name=scrubrand min=0 max=5000 freq=0.15) feedback=80
+#multidelay drywet=50 time=100 timeframe=2000 ampdecay=1 seed=CBA
+out vca=2 dac=[1,2] gain=10
+
+# spring
+CHAIN springshift
+in
+svpring scrubmode=1 stretch=3 delaygo=5000
+delay time=rand(freq=0.2 varifreq=1. min=0. max=800) feedback=20
+multidelay drywet=50 time=100 timeframe=2000 ampdecay=1 seed=CBA
+reverb size=80 decay=100
+filter mode=3 freq=160 width=3
+out vca=3 dac=[1,2] gain=3
+
+# additive reverb
+CHAIN mdelay-add
+in
+filter freq=50
+multidelay ingain=6 time=100 timeframe=7000 drywet=80 gain=5
+additive name=addi2 freqtransp=randi(freq=1.5 varifreq=0.4 mode=2 min=-6 max=32) attack=100 decay=3000 freqsmoo=7000 npeak=8 filteramp=-50 gain=input(in=pedal1, min=-90., max=6.,curve=-0.2)
+disto drive=0.1 offset=0. gain=-12
+reverb decay=110
+out vca=4 dac=[1,2] gain=3
+
+# sfplayer
+CHAIN sfplayer
+sfplayer open=CH2-1-3-hi-groove.aif play=1 loop=1 gain=lfo(freq=5 min=-10 max=0)
+out vca=7 dac=[1,2]
+
+# sfplayer
+CHAIN sfplayerbis
+sfplayer open=s01quiverX.wav play=1 loop=1 gain=lfo(freq=0.2 min=-9 max=1)
+out vca=8 dac=[1,2]
+
+
+################
+#### EVENTS ####
+################
+
+EVENTS
+
+ONSTART # when scene is enabled
+
+
+
+ONRELEASE
+06_georg.multidelay-gran fadeoutmute time=6000 curve=0.5
+06_georg.spec fadeoutmute time=6000 curve=0.5
+06_georg.springshift fadeoutmute time=6000 curve=0.5
+06_georg.mdelay-add fadeoutmute time=6000 curve=0.5
+
+
+
+# 1
+CUE pedal1
+06_georg.multidelay-gran fadein time=0. curve=1
+# 2
+CUE pedal2
+06_georg.multidelay-gran fadeoutmute time=0 curve=0.5
+
+
+# 3
+CUE pedal3
+06_georg.spec fadein time=100. curve=1
+# 4
+CUE pedal4
+06_georg.spec fadeoutmute time=6000 curve=0.5
+
+
+# 5
+CUE pedal5
+06_georg.springshift fadein time=1000. curve=1
+# 6
+CUE pedal6
+06_georg.springshift fadeoutmute time=6000 curve=0.5
+
+
+# 7
+CUE pedal7
+06_georg.mdelay-add fadein time=100. curve=1
+
+#  8
+CUE pedal8
+06_georg.mdelay-add fadeoutmute time=6000 curve=1

@@ -1,0 +1,53 @@
+SCENE ANUSH
+
+# pitch
+CHAIN disto
+in adc=[4 4]
+disto drive=0.9 offset=0.01 drywet=100
+out
+
+# additive reverb
+CHAIN mychain2
+
+
+
+################
+#### EVENTS ####
+################
+
+EVENTS
+
+ONSTART # when scene is enabled
+
+
+
+ONRELEASE
+
+
+
+# 1
+CUE pedal1
+ANUSH.disto fadein
+
+
+# 2
+CUE pedal2
+ANUSH.disto fadeout
+
+# 3
+CUE pedal3
+
+# 4
+CUE pedal4
+
+# 5
+CUE pedal5
+
+# 6
+CUE pedal6
+
+# 7
+CUE pedal7
+
+#  8
+CUE pedal8

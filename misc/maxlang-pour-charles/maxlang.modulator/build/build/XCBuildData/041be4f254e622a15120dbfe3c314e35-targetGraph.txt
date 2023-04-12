@@ -1,0 +1,7 @@
+Target dependency graph (3 targets)
+ZERO_CHECK in maxlang.modulator, no dependencies
+maxlang.modulator in maxlang.modulator, depends on:
+ZERO_CHECK in maxlang.modulator (explicit)
+ALL_BUILD in maxlang.modulator, depends on:
+ZERO_CHECK in maxlang.modulator (explicit)
+maxlang.modulator in maxlang.modulator (explicit)

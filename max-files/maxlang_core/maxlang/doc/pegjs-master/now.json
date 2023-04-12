@@ -1,0 +1,21 @@
+{
+    "version": 2,
+    "name": "pegjs",
+    "alias": [
+        "pegjs.org",
+        "www.pegjs.org"
+    ],
+    "routes": [
+        {
+            "handle": "filesystem"
+        },
+        {
+            "src": "/",
+            "dest": "/index.html"
+        },
+        {
+            "src": "/([^\\.*]+)",
+            "dest": "/$1.html"
+        }
+    ]
+}

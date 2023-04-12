@@ -1,0 +1,92 @@
+SCENE 05_georg
+#GEORG-B
+
+# low blur
+CHAIN mdelay
+in adc=[1,2] # input Clar
+multidelay ingain=4 time=rand(freq=3,varifreq=0.5,min=0,max=5000,curve=2) timeframe=700 drywet=50 feedback=33
+reverb size=40 decay=25 width=30
+out vca=1 dac=[1,2] gain=-2
+
+# short trans delay
+CHAIN short-trans-delay
+in adc=[1,2]
+delay name=delayseqC time=rand(min=1000,max=3000, curve=1)
+freqshift name=shishi shift=randi(freq=0.5,min=0,max=200,curve=0)
+pitchshift trans=rand(min=300,max=400)
+reverb width=30 drywet=70 decay=100
+out vca=2 dac=[1,2] gain=6
+
+# svptransouf
+CHAIN svptransoufff
+in adc=[1,2]
+delay time=0.
+svptrans name=svp1 transp=rand(freq=0.4 min=0. max=10.) envscale=lfo(freq=0.02 min=0.6 max=1.7 curve=0.1) sinus=1. error=0.2 gain=0
+reverb size=60 decay=85 damping=50 drywet=40
+filter name=outfilter mode=1 freq=1700 width=50
+out vca=3 dac=[1,2] gain=12
+
+# multi-trans
+CHAIN multi-trans
+in
+pitchshift transp=0 chord=[-1200 -400 300 700] gain=input(in=pedal1, min=-40. max=10. curve=-0.2)
+reverb size=80 decay=100
+out vca=4 dac=[1,2] gain=4
+
+# sfplayer
+CHAIN sfplayer
+sfplayer open=CH2-1-3-hi-groove.aif loop=1 gain=lfo(freq=5 min=-10 max=0)
+out vca=8 dac=[1,2] gain=-6
+
+
+################
+#### EVENTS ####
+################
+
+EVENTS
+
+ONSTART # when scene is enabled
+
+
+
+## Quand on quitte la scene
+# extinction de toutes les chaines
+ONRELEASE
+05_georg.mdelay fadeoutmute time=7000 curve=1
+05_georg.short-trans-delay fadeoutmute time=7000 curve=1
+05_georg.svptransoufff fadeoutmute time=7000 curve=1
+05_georg.multi-trans fadeoutmute time=7000 curve=1
+
+
+
+# 1
+CUE pedal1
+05_georg.mdelay enable 1
+05_georg.mdelay fadein time=1000. curve=1
+# 2
+CUE pedal2
+05_georg.mdelay fadeoutmute time=6000 curve=1
+
+# 3
+CUE pedal3
+05_georg.short-trans-delay enable 1
+05_georg.short-trans-delay fadein time=1000. curve=1
+# 4
+CUE pedal4
+05_georg.short-trans-delay fadeoutmute time=6000
+
+# 5
+CUE pedal5
+05_georg.svptransoufff enable 1
+05_georg.svptransoufff fadein time=1000.
+# 6
+CUE pedal6
+05_georg.svptransoufff fadeoutmute time=6000
+
+# 7
+CUE pedal7
+05_georg.multi-trans fadein time=1000.
+
+#  8
+CUE pedal8
+05_georg.multi-trans fadeoutmute time=6000

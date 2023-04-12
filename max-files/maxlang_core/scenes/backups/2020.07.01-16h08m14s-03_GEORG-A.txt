@@ -1,0 +1,86 @@
+SCENE 03_georg
+
+# on fait une disto sur pedal1
+
+# delay 1
+CHAIN delay_one
+in adc=[1,2]
+delay name=delayseqC time=rand(freq=0.34 min=0. max=400 varifreq=0.5) freq=randi(freq=10 min=0 max=5000 curve=0.3) gain=3 feedback=25.
+reverb size=70 decay=120 drywet=80
+out vca=1 dac=[1,2] gain=7
+
+# additive reverb
+CHAIN transpolfofo
+in adc=[1,2] # input Clar
+filter name=filterseqC freq=randi(min=50 max=200 freq=0.1 curve=0.2) mode=3 width=7
+delay name=delayseqC time=rand(freq=3 varifreq=0.5 min=0 max=2000 curve=0.6) drywet=30 feedback=70
+freqshift name=shishi shift=randi(name=gigilfo,freq=6 min=-100 max=100 curve=0)
+reverb size=120 decay=75 drywet=50 width=80
+out vca=2 dac=[1,2] gain=5
+
+# disto
+CHAIN spectral_one
+in adc=[1,2]
+spectralcompand sinusnoise=75 threshhold=-50 tilt=-3 drywet=40 gain=5
+reverb size=50 decay=30 width=90 diffusion=80 drywet=50
+pitchshift transp=400 drywet=50
+out vca=3 dac=[1,2] gain=7
+
+
+# sfplayer
+CHAIN sfplayer
+sfplayer open=s07MeshedMaze.wav play=1 loop=0 gain=lfo(freq=6 min=-8 max=0)
+out vca=7 dac=[1,2] gain=-8
+
+# sfplayer
+CHAIN sfplayerbis
+sfplayer open=s07MeshedMazeX.wav play=1 loop=1 gain=lfo(freq=0.7 min=-6 max=1)
+out vca=8 dac=[1,2] gain=-10
+
+
+################
+#### EVENTS ####
+################
+
+EVENTS
+
+ONSTART # when scene is enabled
+
+#    au changement de scene
+#     arret de la disto_mrs
+ONRELEASE
+03_georg.delay_one fadeout time=3000
+03_georg.transpolfofo fadeout time=3000
+03_georg.spectral_one fadeout time=5000
+03_georg.sfplayer fadeout time=5000
+03_georg.sfplayerbis fadeout time=5000
+
+# 1
+CUE pedal1
+03_georg.delay_one fadein time=1000
+# 2
+CUE pedal2
+03_georg.delay_one fadeoutmute time=3000
+
+# 3
+CUE pedal3
+03_georg.transpolfofo fadein time=1000
+# 4
+CUE pedal4
+03_georg.transpolfofo fadeoutmute time=3000
+
+# 5
+CUE pedal5
+03_georg.spectral_one fadein time=3000
+# 6
+CUE pedal6
+03_georg.spectral_one fadeoutmute time=5000
+
+# 7
+CUE pedal7
+03_georg.sfplayer fadein time=2000
+03_georg.sfplayerbis fadein time=2000
+#  8
+CUE pedal8
+03_georg.sfplayer fadeoutmute time=7000
+03_georg.sfplayerbis fadeoutmute time=7000

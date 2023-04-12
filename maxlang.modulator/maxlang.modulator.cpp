@@ -60,7 +60,7 @@ public:
     void *m_clock;
     double m_interval;
     
-    int m_verbose=1;
+    int m_verbose=0;
     
     
     
@@ -368,9 +368,11 @@ public:
             {
                 case A_LONG:
                     double_value = av[0].a_w.w_long;
+                    double_param = true;
                     break;
                 case A_FLOAT:
                     double_value = av[0].a_w.w_float;
+                    double_param = true;
                     break;
                 case A_SYM:
                     try
@@ -380,21 +382,21 @@ public:
                         std::string::size_type sz;     // alias of size_t
 
                         double_value = std::stod (value_str,&sz);
+                        double_param = true;
                         
                     }
                     catch (std::invalid_argument const& ex)
                     {
-                        object_error(&m_ob, "single float parsing %s in %s",ex.what(),atoms.c_str());
-                        return;
+                        double_param = false;
                     }
                     
                     break;
             }
-            
-            atoms = "const( val=" + std::to_string(double_value) + " )";
-            atoms_set = true;
-            double_param = true;
-            //object_post(&m_ob, "parsing %s",atoms.c_str());
+            if(double_param)
+            {
+                atoms = "const( val=" + std::to_string(double_value) + " )";
+                atoms_set = true;
+            }
             
         }
         
@@ -717,6 +719,8 @@ public:
         bool double_param = false;
         double double_value = 0;
         
+        
+        
         /* if only float or long parameter do a parse const*/
         if (ac==1)
         {
@@ -726,9 +730,11 @@ public:
             {
                 case A_LONG:
                     double_value = av[0].a_w.w_long;
+                    double_param = true;
                     break;
                 case A_FLOAT:
                     double_value = av[0].a_w.w_float;
+                    double_param = true;
                     break;
                 case A_SYM:
                     try
@@ -738,21 +744,21 @@ public:
                         std::string::size_type sz;     // alias of size_t
 
                         double_value = std::stod (value_str,&sz);
+                        double_param = true;
                         
                     }
                     catch (std::invalid_argument const& ex)
                     {
-                        object_error(&m_ob, "single float parsing %s in %s",ex.what(),atoms.c_str());
-                        return;
+                        double_param = false;
                     }
                     
                     break;
             }
-            
-            atoms = "const( val=" + std::to_string(double_value) + " )";
-            atoms_set = true;
-            double_param = true;
-            //object_post(&m_ob, "parsing %s",atoms.c_str());
+            if(double_param)
+            {
+                atoms = "const( val=" + std::to_string(double_value) + " )";
+                atoms_set = true;
+            }
             
         }
         

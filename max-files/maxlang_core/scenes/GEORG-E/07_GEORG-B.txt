@@ -1,0 +1,89 @@
+SCENE 07_georg
+#GEORG-B
+
+# test 1
+CHAIN svptransouf-testone
+in adc=[1,2] # input Clar
+delay time=0
+svptrans name=svp1 transp=rand(freq=0.4 min=0. max=10.) envscale=lfo(freq=0.2, mode=3 min=0.6,max=1.7,curve=0.05) sinus=1. error=0.2 gain=0
+reverb size=110 decay=95 damping=70 drywet=40
+filter name=outfilter1 mode=0 freq=1800 width=90
+out vca=1 dac=[1,2] gain=lfo(mode=2 freq=randi(min=3 max=12 freq=1) min=-18. max=4. pw=0.5)
+
+
+# test 2
+CHAIN svptransouf-testtwo
+in adc=[1,2] # input Clar
+delay time=0
+svptrans name=svp2 transp=randi(freq=0.4 segcurve=0.5 min=0. max=10.) envscale=lfo(freq=0.8, mode=2 min=0.6,max=1.7,curve=0.05) sinus=1. error=0.7 gain=3
+reverb size=90 decay=75 damping=30 drywet=80
+filter name=outfilter2 mode=2 freq=3800 width=90
+out vca=2 dac=[1,2] gain=6
+
+# test 3
+CHAIN svptransouf-testthree
+in adc=[1,2] # input Clar
+delay time=0
+svptrans name=svp13 transp=rand(freq=0.9 min=3. max=9.) envscale=lfo(freq=0.02, mode=1 min=0.6,max=1.7,curve=0.05) sinus=1. error=0.2 gain=0
+reverb size=60 decay=55 damping=50 drywet=50
+filter name=outfilter3 mode=3 freq=5800 width=90
+out vca=3 dac=[1,2]
+
+# sfplayer
+CHAIN spec-test
+in adc=[1,2] # input Clar
+spectralcompand name=spcomp sinusnoise=100
+svpring  name=ring drywet=50 scrubmode=1 scrub=randi(name=scrubrand min=0 max=5000 freq=0.15)
+multidelay drywet=50 time=100 timeframe=5000 ampdecay=6 seed=CBA
+out vca=4 dac=[1,2] gain=10
+
+# sfplayer
+CHAIN sfplayerbis
+sfplayer open=s01quiverX.wav play=1 loop=1 gain=lfo(freq=0.2 min=-9 max=1)
+out vca=8
+
+
+################
+#### EVENTS ####
+################
+
+EVENTS
+
+ONSTART # when scene is enabled
+
+
+
+ONRELEASE
+07_georg.svptransouf-testone fadeoutmute time=2000 curve=1
+07_georg.svptransouf-testtwo fadeoutmute time=2000 curve=1
+07_georg.svptransouf-testthree fadeoutmute time=2000 curve=1
+07_georg.spec-test fadeoutmute time=2000 curve=1
+
+
+# 1
+CUE pedal1
+07_georg.svptransouf-testone fadein time=100. curve=1
+# 2
+CUE pedal2
+07_georg.svptransouf-testone fadeoutmute time=2000 curve=1
+
+# 3
+CUE pedal3
+07_georg.svptransouf-testtwo fadein time=100. curve=1
+# 4
+CUE pedal4
+07_georg.svptransouf-testtwo fadeoutmute time=2000 curve=1
+
+# 5
+CUE pedal5
+07_georg.svptransouf-testthree fadein time=100. curve=1
+# 6
+CUE pedal6
+07_georg.svptransouf-testthree fadeoutmute time=2000 curve=1
+
+# 7
+CUE pedal7
+07_georg.spec-test fadein time=100. curve=1
+#  8
+CUE pedal8
+07_georg.spec-test fadeoutmute time=2000 curve=1

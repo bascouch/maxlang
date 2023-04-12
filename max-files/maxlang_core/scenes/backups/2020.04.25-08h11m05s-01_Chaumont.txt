@@ -1,0 +1,113 @@
+SCENE 01_chaumont
+
+#pitch
+CHAIN transpolfofo
+in adc=[1,2] # input Clar
+filter name=filterseqC freq=randi(min=50 max=200 freq=0.1 curve=0.2) mode=3 width=7
+delay name=delayseqC time=rand(freq=3 varifreq=0.5 min=0 max=2000 curve=0.6) drywet=30 feedback=70
+freqshift name=shishi shift=randi(name=gigilfo,freq=6, min=-100, max=100, curve=0)
+reverb size=120 decay=75 drywet=50
+out vca=1 dac=[1,2] gain=0
+
+# additive reverb
+CHAIN additiveitiv
+in
+filter freq=50
+additive name=addi2 freqtransp=-17 attack=500 decay=1000 freqsmoo=1000 npeak=2 filteramp=-50 gain=input(in=pedal1  min=-90.  max=6. curve=-0.2)
+disto drive=0.9 offset=0. gain=-12
+filter freq=400 mode=1 width=12
+reverb decay=100
+out vca=2 dac=[1,2] gain=0
+
+# svptransouf
+CHAIN svptransouf
+in
+delay time=0
+svptrans name=svp1 transp=rand(freq=0.4,min=0.,max=10.) envscale=lfo(freq=0.02,min=0.6,max=1.7,curve=0.05) sinus=1. error=0.2 gain=0
+reverb size=30 decay=75 damping=30 drywet=20
+filter name=outfilter mode=2 freq=1800 width=90
+out vca=3 dac=[1,2] gain=lfo(mode=2 freq=randi(min=3 max=12 freq=1) min=-18. max=4. pw=0.5)
+
+# shiftsimple
+CHAIN shiftsimple
+in
+receivebus bus=tramecrotale
+freqshift shift=randi(min=-1000 max=-800 freq=0.1)
+reverb size=80 decay=100
+out vca=4 dac=[1,2] gain=8
+
+# sfplayer
+CHAIN sfplayer
+sfplayer open=48_P_P_A_TRAME_4A-2.wav loop=1 play=1 gain=18 #lfo(freq=5 min=12 max=24)
+freqshift shift=randi(min=-30 max=30 freq=0.1) drywet=50
+sendbus bus=trame-player
+out vca=8 dac=[1 2] gain=-96
+
+
+# sfplayer
+CHAIN player-effects
+receivebus bus=trame-player gain=6
+spectralcompand name=spcomp sinusnoise=100 threshold=-40. tilt=-1.7
+#svpring  name=ring drywet=50 scrubmode=1 scrub=lfo(min=0 max=5000 mode=4 freq=0.2 name=scrubrand) feedback=90
+out
+
+################
+#### EVENTS ####
+################
+
+EVENTS
+
+ONSTART # when scene is enabled
+
+
+
+## Quand on quitte la scene
+# extinction de toutes les chaines
+
+ONRELEASE
+01_chaumont.transpolfofo fadeoutmute time=7000
+01_chaumont.additiveitiv fadeoutmute time=7000
+01_chaumont.svptransouf fadeoutmute time=7000
+01_chaumont.shiftsimple fadeoutmute time=7000
+
+
+# 1
+CUE pedal1
+01_chaumont.transpolfofo enable 1
+01_chaumont.transpolfofo fadein time=1000. curve=1
+
+
+# 2
+CUE pedal2
+01_chaumont.transpolfofo fadeoutmute time=6000 curve=1
+
+# 3
+CUE pedal3
+01_chaumont.additiveitiv enable 1
+01_chaumont.additiveitiv fadein time=1000. curve=1
+
+# 4
+CUE pedal4
+01_chaumont.additiveitiv fadeout time=6000
+
+# 5
+CUE pedal5
+01_chaumont.svptransouf enable 1
+01_chaumont.svptransouf fadein time=1000
+
+# 6
+CUE pedal6
+01_chaumont.svptransouf fadeout time=6000
+
+# 7
+CUE pedal7
+01_chaumont.shiftsimple enable 1
+01_chaumont.shiftsimple fadein time=1000
+01_chaumont.sfplayer fadein time=200
+01_chaumont.player-effects fadein time=200
+
+#  8
+CUE pedal8
+01_chaumont.shiftsimple fadeout time=6000
+01_chaumont.sfplayer fadeout time=200
+01_chaumont.player-effects fadeout time=200

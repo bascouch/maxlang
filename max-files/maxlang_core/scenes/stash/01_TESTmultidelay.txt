@@ -1,0 +1,93 @@
+SCENE scene1
+
+# pitch
+CHAIN transpolfofo
+in name=transpoIN adc=[1,2] # input Clar
+filter name=filterseqC freq=rand(freq=1,min=300,max=1200) mode=2 width=12 gain=12
+freqshift name=shishi shift=randi(name=gigilfo,freq=.5,varifreq=0.8, min=-20, max=-29, curve=0)
+disto drive=0.7 offset=0.9
+multidelay drywet=50 feedback=50 name=mdelay-scen1 timeframe=200 ampdecay=10 seed=CBA time=rand(freq=10,varifreq=0.5 ,min=0,max=300,curve=2)
+#
+reverb size=120 decay=75 drywet=1
+out vca=1 dac=[1,2,3,4]
+
+# additive reverb
+CHAIN additive
+in
+filter freq=5000
+out vca=2 dac=[1,2] gain=3
+
+#CHAIN
+CHAIN svptrans
+in
+delay time=0
+out vca=3 dac=[3,4]
+
+CHAIN shiftsimple
+in
+receivebus bus=tramecrotale
+granul density=10 length=20
+# freqshift shift=randi(min=-1000,max=-800,freq=0.1)
+reverb size=80 decay=100
+out vca=7
+
+# SOUNDFILE
+CHAIN soundfile_Trame
+sfplayer name=player1 open=s48_P_P_A_TRAME_4A-2.wav loop=0 speed=1
+sendbus bus=tramecrotale
+out vca=8
+
+
+################
+#### EVENTS ####
+################
+
+EVENTS
+
+ONSTART # when scene is enabled
+transpolfofo mute 1
+
+
+ONRELEASE
+scene1.transpolfofo fadeoutmute time=3000
+scene1.additive fadeoutmute time=3000
+scene1.additive&spat fadeoutmute time=3000
+
+
+# 1
+CUE pedal1
+scene1.transpolfofo enable 1
+scene1.transpolfofo fadein time=100. curve=1
+mdelay-scen1 ingain 0.
+
+
+# 2
+CUE pedal2
+mdelay-scen1 ingain -90.
+
+# 3
+CUE pedal3
+scene1.additive enable 1
+scene1.additive fadein time=1000. curve=1
+
+# 4
+CUE pedal4
+scene1.additive fadeout time=2000
+
+# 5
+CUE pedal5
+scene1.svptrans enable 1
+scene1.svptrans fadein time=100
+
+# 6
+CUE pedal6
+scene1.svptrans fadeout
+
+# 7
+CUE pedal7
+scene1.shiftsimple enable 1
+scene1.shiftsimple fadein
+
+#  8
+CUE pedal8
+scene1.shiftsimple fadeout

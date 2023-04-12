@@ -1,0 +1,101 @@
+SCENE 02_georg
+#GEORG-D EFFUVES D'AVRIL II
+
+## glouglou-trans
+CHAIN glouglou-trans
+in adc=[1,2]
+svptrans name=svp1 transp=300. transpadd=rand(freq=2.4 min=0. max=10.) envscale=rand(min=0.45 max=0.65 freq=4.5)  sinus=1. error=0.6 envpres=1 gain=input(in=pedal1 min=-40. max=20. curve=-0.2)
+reverb size=40 decay=60 drywet=60
+out vca=1 dac=[1,2] gain=4
+
+# spring
+CHAIN spring
+in adc=[1,2] # input Clar
+delay time=rand(freq=0.2 varifreq=1. min=0. max=800) feedback=50
+imager rotation=randi(freq=0.2 min=-45 max=-20)
+reverb size=80 decay=100
+out vca=2 dac=[1,2] gain=6
+
+# sfplayer
+CHAIN sfplayer-spring
+sfplayer name=sfs open=KIDS_short_33.wav play=1 loop=1 gain=lfo(freq=3 min=-8 max=2)
+out vca=7 dac=[1,2] gain=-5
+
+# svptransouf-testtwo
+CHAIN svptransouf-testtwo
+in adc=[1,2] # input Clar
+delay time=0
+svptrans name=svp2 transp=randi(freq=0.4 segcurve=0.5 min=0. max=10.) envscale=lfo(freq=0.8 mode=2 min=0.6 max=1.7 curve=0.05) sinus=1. error=0.7 gain=input(in=pedal1 min=-40. max=20. curve=-0.2)
+reverb size=90 decay=75 damping=30 drywet=80
+filter name=outfilter2 mode=2 freq=3800 width=90
+out vca=3 dac=[1,2] gain=6
+
+# sfplayer
+CHAIN sfplayer-svp
+sfplayer name=sfsvp open=GEORG_1_4.wav play=1 loop=1 gain=lfo(freq=0.2 min=-9 max=1)
+out vca=8 dac=[1,2] gain=-13
+
+# granul-explor
+CHAIN granul-explor
+in adc=[1 2] # input Clar
+granul freeze=0 length=20 delay=300 density=10 delay-mod-depth=400 delay-mod-freq=200 density-jit=0.2 env-type=2 gain=input(in=pedal1 min=-40. max=10. curve=-0.2)
+imager width=0
+reverb size=30 decay=75 damping=30 drywet=20
+out vca=4 dac=[1 2]
+
+################
+#### EVENTS ####
+################
+
+EVENTS
+
+ONSTART # when scene is enabled
+
+ONRELEASE
+02_georg.glouglou-trans fadeoutmute time=8000 curve=0
+02_georg.spring fadeoutmute time=8000 curve=1
+02_georg.sfplayer-spring fadeoutmute time=8000 curve=0
+02_georg.svptransouf-testtwo fadeoutmute time=8000 curve=1
+02_georg.sfplayer-svp fadeoutmute time=8000 curve=0
+02_georg.granul-explor fadeoutmute time=8000 curve=0.2
+
+# 1
+CUE pedal1
+02_georg.glouglou-trans fadein time=1000. curve=0
+# 2
+CUE pedal2
+02_georg.glouglou-trans fadeoutmute time=8000 curve=0
+
+
+# 3
+CUE pedal3
+02_georg.spring fadein time=4000. curve=0
+02_georg.sfplayer-spring fadein time=15000 curve=1
+# 4
+CUE pedal4
+02_georg.spring fadeoutmute time=8000 curve=1
+02_georg.sfplayer-spring fadeoutmute time=8000 curve=0
+
+
+# 5
+CUE pedal5
+02_georg.svptransouf-testtwo fadein time=500. curve=1
+02_georg.sfplayer-svp fadein time=15000 curve=1
+# 6
+CUE pedal6
+02_georg.svptransouf-testtwo fadeoutmute time=8000 curve=1
+02_georg.sfplayer-svp fadeoutmute time=8000 curve=0
+
+
+# 7
+CUE pedal7
+02_georg.granul-explor fadein time=100. curve=0.2
+#02_georg.granul-explor.sf1 play 1
+#  8
+CUE pedal8
+02_georg.granul-explor fadeoutmute time=8000 curve=-0.2
+#02_georg.sfplayerbis fadeoutmute time=9000 curve=-0.2
+
+#20 # attendre 20ms
+#02_georg.sfplayerbis fadein time=7000. curve=0.2
+#02_georg.sfplayerbis.sf2 play 1

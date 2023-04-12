@@ -1,0 +1,104 @@
+SCENE 01_georg
+#GEORG-D EFFUVES D'AVRIL I
+
+# delay 1
+CHAIN delay_one
+in adc=[1,2]
+delay name=delayseqC time=rand(freq=0.24 min=0. max=200 varifreq=0.5) feedback=15. gain=input(in=pedal1 min=-40. max=6. curve=-0.2)
+imager rotation=40
+reverb size=50 decay=100 drywet=80
+out vca=1 dac=[1,2] gain=-1
+
+# delay 2
+CHAIN delay_two
+in adc=[1,2]
+delay name=delayseqC time=rand(freq=0.34 min=0. max=400 varifreq=0.6) feedback=25. gain=3
+imager rotation=35
+reverb size=70 decay=120 drywet=80
+out vca=2 dac=[1,2] gain=2
+
+# twist
+CHAIN twist
+in adc=[1,2] # input Clar
+gizmo ratio=42. gain=input(in=pedal1 min=-40. max=12. curve=-0.2)
+imager rotation=randi(freq=0.5 min=-45 max=45)
+reverb size= 90 decay=80 drywet=70
+out vca=3 dac=[1,2] gain=6
+
+# sfplayer
+CHAIN sfplayer-twist
+sfplayer name=sft open=NEW_KIDS_4.wav play=1 loop=0 gain=2
+imager rotation=-35
+out vca=5 dac=[1,2] gain=0
+
+# sfplayer
+CHAIN sfplayer
+sfplayer name=sf1 open=SHORT_GREYS_A_7.wav play=1 loop=0 gain=lfo(freq=0.4 min=-6 max=2)
+imager rotation=-40
+out vca=7 dac=[1,2] gain=4
+#gain=lfo(freq=5 min=-10 max=0)
+
+# sfplayer-bis
+CHAIN sfplayerbis
+sfplayer name=sf2 open=SHORT_GREYS_B_7.wav play=1 loop=0 gain=lfo(freq=0.9 min=-7 max=1)
+imager rotation=40
+out vca=8 dac=[1,2] gain=7
+#gain=lfo(freq=0.2 min=-9 max=1)
+
+################
+#### EVENTS ####
+################
+
+EVENTS
+
+ONSTART # when scene is enabled
+
+## Quand on quitte la scene
+# extinction de toutes les chaines
+
+ONRELEASE
+01_georg.delay_one fadeoutmute time=3000 curve=0.5
+01_georg.delay_two fadeoutmute time=7000
+01_georg.twist fadeoutmute time=7000
+01_georg.sfplayer-twist fadeoutmute time=7000 curve=0
+#01_georg.sfplayer fadeoutmute time=7000 curve=0
+#01_georg.sfplayerbis fadeoutmute time=7000 curve=0
+
+# 1
+CUE pedal1
+01_georg.delay_one enable 1
+01_georg.delay_one fadein time=3000. curve=0.5
+# 2
+CUE pedal2
+01_georg.delay_one fadeout time=3000 curve=0.5
+
+# 3
+CUE pedal3
+01_georg.delay_two enable 1
+01_georg.delay_two fadein time=3000. curve=0.5
+# 4
+CUE pedal4
+01_georg.delay_two fadeout time=7000 curve=1
+
+# 5
+CUE pedal5
+01_georg.twist enable 1
+01_georg.twist fadein time=1000. curve=1
+15000
+01_georg.sfplayer-twist fadein time=5000 curve=0
+
+# 6
+CUE pedal6
+01_georg.twist fadeout time=7000
+01_georg.sfplayer-twist fadeout time=9000 curve=0
+
+# 7
+CUE pedal7
+01_georg.sfplayer fadein time=6000. curve=0
+01_georg.sfplayer.sf1 play 1
+01_georg.sfplayerbis fadein time=1000. curve=0
+01_georg.sfplayer.sf2 play 1
+#  8
+CUE pedal8
+01_georg.sfplayer fadeoutmute time=7000 curve=0.3
+01_georg.sfplayerbis fadeoutmute time=9000 curve=0.4
