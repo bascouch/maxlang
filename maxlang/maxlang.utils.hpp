@@ -149,7 +149,8 @@ namespace maxlang
         
         void setcurve(double c)
         {
-            curve = std::clamp(c,-1.04,1.04);
+            //curve = std::clamp(c,-1.04,1.04);
+            curve = (c <= -1.04)? -1.04 : ((c > 1.04)? 1.04 : c);
             double hh, ff, eff, gh;
             
             if(curve<0)

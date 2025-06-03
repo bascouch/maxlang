@@ -49,10 +49,14 @@ class modtor_param
     
     // buffer
     double * buffer = 0;
-    long n_buffer=0;
+    long n_buffer = 0;
     
-    modtor_param * buffer_proc(int numframes,double deltatime);
+    double * buffer_proc(int numframes,double deltatime);
+    
     double get_b(int i);
+    
+    // buffer_proc needs update
+    bool has_update = true;
     
     
 };
@@ -122,7 +126,7 @@ public :
     
     int traverse_for_ref(std::map<std::string,maxlang::modtor*> &name_ref)
     {
-        for (std::map<std::string, modtor_param>::iterator it=params.begin(); it!=params.end(); ++it)
+        for (std::unordered_map<std::string, modtor_param>::iterator it=params.begin(); it!=params.end(); ++it)
         {
             if( it->first == "name" )
             {
@@ -143,7 +147,7 @@ public :
         return 1; // ;)
     }
     
-    std::map<std::string, modtor_param> params;
+    std::unordered_map<std::string, modtor_param> params;
     std::random_device rd_dev;
     std::seed_seq rd_seed;
     std::string modtor_refname;
@@ -251,10 +255,11 @@ modtor* modtor_param::getmodtor()
 void modtor_param::set(double value)
 {
     _value_d=value;
+    has_update = true;
     
 }
 
-modtor_param * modtor_param::buffer_proc(int numframes,double deltatime)
+double * modtor_param::buffer_proc(int numframes,double deltatime)
 {
     double val;
     double k = numframes;
@@ -266,39 +271,47 @@ modtor_param * modtor_param::buffer_proc(int numframes,double deltatime)
             free(buffer);
         buffer = (double *) malloc(numframes*sizeof(double));
         n_buffer = numframes;
+        has_update = true;
     }
     
-    double * buf_p = buffer;
-    
-    switch (_type)
+    if(has_update || _type == modtor_param_type::e_modtor)
     {
-        case modtor_param_type::e_double:
-            val =  _value_d;
-            while(k--)
-                *(buf_p++) = val;
-            break;
-        case modtor_param_type::e_int:
-            val = _value_i;
-            while(k--)
-                *(buf_p++) = val;
-            break;
-        case modtor_param_type::e_list:
-            val = 0.;
-            while(k--)
-                *(buf_p++) = val;
-            break;
-        case modtor_param_type::e_string:
-            val = 0.;
-            while(k--)
-                *(buf_p++) = val;
-            break;
-        case modtor_param_type::e_modtor:
-            _modtor->perform(buffer, numframes, deltatime);
-            break;
+        double * buf_p = buffer;
+        has_update = false;
         
+        switch (_type)
+        {
+            case modtor_param_type::e_double:
+                val =  _value_d;
+                while(k--)
+                    *(buf_p++) = val;
+                break;
+            case modtor_param_type::e_int:
+                val = _value_i;
+                while(k--)
+                    *(buf_p++) = val;
+                break;
+            case modtor_param_type::e_list:
+                val = 0.;
+                while(k--)
+                    *(buf_p++) = val;
+                break;
+            case modtor_param_type::e_string:
+                val = 0.;
+                while(k--)
+                    *(buf_p++) = val;
+                break;
+            case modtor_param_type::e_modtor:
+                _modtor->perform(buffer, numframes, deltatime);
+                break;
+            
+        }
     }
-    return this;
+    
+    
+    return buffer;
 }
+
 
 double modtor_param::get_b(int i)
 {
@@ -640,7 +653,8 @@ public:
     {
         // mode : lfo-sine lfo-rect lfo-sawup lfo-sawdown lfo-tri
         // fractionnal mode blend between waveforms
-        mode = std::clamp(mode,1.,5.);
+        //mode = std::clamp(mode,1.,5.);
+        mode = (mode < 1)? 1 : ((mode > 5)? 5 : mode);
         int imode = floor(mode);
         double fmode = fmodf(mode,1.);
         double w1,w2,w;
@@ -681,18 +695,21 @@ public:
     
     void perform(double * values,int numframes,double deltatime) override
     {
-        modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
-        modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
-        modtor_param * p_mode = params["mode"].buffer_proc(numframes, deltatime);
-        modtor_param * p_pw = params["pw"].buffer_proc(numframes, deltatime);
-        modtor_param * p_min = params["min"].buffer_proc(numframes, deltatime);
-        modtor_param * p_max = params["max"].buffer_proc(numframes, deltatime);
-        modtor_param * p_curve = params["curve"].buffer_proc(numframes, deltatime);
-        modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-        modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-        modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
+        double * p_freq = params["freq"].buffer_proc(numframes, deltatime);
+        double * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
+        double * p_mode = params["mode"].buffer_proc(numframes, deltatime);
+        double * p_pw = params["pw"].buffer_proc(numframes, deltatime);
+        double * p_min = params["min"].buffer_proc(numframes, deltatime);
+        double * p_max = params["max"].buffer_proc(numframes, deltatime);
+        double * p_curve = params["curve"].buffer_proc(numframes, deltatime);
+        double * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+        double * p_add = params["add"].buffer_proc(numframes, deltatime);
+        double * p_count = params["count"].buffer_proc(numframes, deltatime);
         
-        modtor_param * p_time = 0;
+        double * p_time = 0;
+        
+        double freq, varifreq, mode, pw, min, max, curve, add, mul, count;
+        double r_freq, w;
         
         bool time_mode = params.find("time") != params.end();
         
@@ -705,31 +722,31 @@ public:
         for(int i=0; i<numframes; i++)
         {
             // get all the parameters (check time or freq format)
-            double freq = p_freq->get_b(i);;
-            double varifreq = p_varifreq->get_b(i);
+            freq = *(p_freq++);
+            varifreq = *(p_varifreq++);
             
             if(time_mode)
-                freq = 1000./ std::clamp(p_time->get_b(i),0.001,10000000.);
-            double mode = p_mode->get_b(i);
-            double pw = p_pw->get_b(i);
-            double min = p_min->get_b(i);
-            double max = p_max->get_b(i);
-            double curve = p_curve->get_b(i);
-            double add = p_add->get_b(i);
-            double mul = p_mul->get_b(i);
+                freq = 1000./ std::clamp(*(p_time++),0.001,10000000.);
+            mode = *(p_mode++);
+            pw = *(p_pw++);
+            min = *(p_min++);
+            max = *(p_max++);
+            curve = *(p_curve++);
+            add = *(p_add++);
+            mul = *(p_mul++);
             
             /** count special parameter: if > 0
                 • freq = 1./count
                 • deltatime = 1000.
             */
-            double count = p_count->get_b(i);
+            count = *(p_count++);
             if(count >= 0.)
             {
                 freq = (count > 0.01)? 1./count : 100. ;
                 deltatime = 1000.;
             }
             
-            double r_freq = freq * exp2( m_varifreq );
+            r_freq = freq * exp2( m_varifreq );
             phase += r_freq*deltatime/1000.;
             
             if (phase > 1.)
@@ -738,8 +755,11 @@ public:
                 phase = fmodf(phase,1.);
                 
                 // sample curve and pw param
-                m_curve = curve;
-                output_scale.setcurve(m_curve);
+                if(curve != m_curve)
+                {
+                    m_curve = curve;
+                    output_scale.setcurve(m_curve);
+                }
                 m_pw = pw;
             }
             
@@ -747,7 +767,7 @@ public:
             output_scale.setout_max(max);
             
             
-            double w = wave(phase, mode, m_pw);
+            w = wave(phase, mode, m_pw);
             values[i] = add+(output_scale.apply(w)*mul);
             
         }
@@ -877,16 +897,18 @@ public:
     
     void perform(double * values,int numframes,double deltatime) override
     {
-        modtor_param * p_time = params["time"].buffer_proc(numframes, deltatime);
-        modtor_param * p_varitime = params["varitime"].buffer_proc(numframes, deltatime);
-        modtor_param * p_min = params["min"].buffer_proc(numframes, deltatime);
-        modtor_param * p_max = params["max"].buffer_proc(numframes, deltatime);
-        modtor_param * p_curve = params["curve"].buffer_proc(numframes, deltatime);
-        modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-        modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-        modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
+        double * p_time = params["time"].buffer_proc(numframes, deltatime);
+        double * p_varitime = params["varitime"].buffer_proc(numframes, deltatime);
+        double * p_min = params["min"].buffer_proc(numframes, deltatime);
+        double * p_max = params["max"].buffer_proc(numframes, deltatime);
+        double * p_curve = params["curve"].buffer_proc(numframes, deltatime);
+        double * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+        double * p_add = params["add"].buffer_proc(numframes, deltatime);
+        double * p_count = params["count"].buffer_proc(numframes, deltatime);
         
-        modtor_param * p_freq = 0;
+        double * p_freq = 0;
+        
+        double time, varitime, min, max, curve, add, mul, count, tmp;
         
         bool freq_mode = params.find("freq") != params.end();
         
@@ -899,24 +921,24 @@ public:
         for(int i=0; i<numframes; i++)
         {
             // get all the parameters (check time or freq format)
-            double time = p_time->get_b(i);
-            double varitime = p_time->get_b(i);
+            time = *(p_time++);
+            varitime = *(p_varitime++);
 
             if(freq_mode)
-                time = 1000./ std::clamp(p_freq->get_b(i),0.001,10000000.);
+                time = 1000./ std::clamp(*(p_freq++),0.001,10000000.);
             
-            double min = p_time->get_b(i);
-            double max = p_time->get_b(i);
-            double curve = p_time->get_b(i);
-            double add = p_time->get_b(i);
-            double mul = p_time->get_b(i);
-            double tmp;
+            min = *(p_min++);
+            max = *(p_max++);
+            curve = *(p_curve++);
+            add = *(p_add++);
+            mul = *(p_mul++);
+            
             
             /** count special parameter: if > 0
                 • freq = 1./count
                 • deltatime = 1000.
             */
-            double count = p_count->get_b(i);
+            count = *(p_count++);
             if(count >= 0.)
             {
                 time = (count > 0.01)? count * 1000 : 10. ;
@@ -1096,18 +1118,20 @@ public:
     
     void perform(double * values,int numframes,double deltatime) override
     {
-        modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
-        modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
-        modtor_param * p_walk = params["walk"].buffer_proc(numframes, deltatime);
-        modtor_param * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
-        modtor_param * p_min = params["min"].buffer_proc(numframes, deltatime);
-        modtor_param * p_max = params["max"].buffer_proc(numframes, deltatime);
-        modtor_param * p_curve = params["curve"].buffer_proc(numframes, deltatime);
-        modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-        modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-        modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
+        double * p_freq = params["freq"].buffer_proc(numframes, deltatime);
+        double * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
+        double * p_walk = params["walk"].buffer_proc(numframes, deltatime);
+        double * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
+        double * p_min = params["min"].buffer_proc(numframes, deltatime);
+        double * p_max = params["max"].buffer_proc(numframes, deltatime);
+        double * p_curve = params["curve"].buffer_proc(numframes, deltatime);
+        double * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+        double * p_add = params["add"].buffer_proc(numframes, deltatime);
+        double * p_count = params["count"].buffer_proc(numframes, deltatime);
         
-        modtor_param * p_time = 0;
+        double * p_time = 0;
+        
+        double freq, varifreq, walk, min, max, curve, segcurve, add, mul, count;
         
         bool time_mode = params.find("time") != params.end();
         
@@ -1120,25 +1144,25 @@ public:
         for(int i=0; i<numframes; i++)
         {
             // get all the parameters (check time or freq format)
-            double freq = p_freq->get_b(i);
-            double varifreq = p_varifreq->get_b(i);
+            freq = *(p_freq++);
+            varifreq = *(p_varifreq++);
             
             if(time_mode)
-                freq = 1000./ std::clamp(p_time->get_b(i),0.001,10000000.);
+                freq = 1000./ std::clamp(*(p_time++),0.001,10000000.);
             
-            double walk = p_walk->get_b(i);
-            double min = p_min->get_b(i);
-            double max = p_max->get_b(i);
-            double curve = p_curve->get_b(i);
-            double segcurve = p_segcurve->get_b(i);
-            double add = p_add->get_b(i);
-            double mul = p_mul->get_b(i);
+            walk = *(p_walk++);
+            min = *(p_min++);
+            max = *(p_max++);
+            curve = *(p_curve++);
+            segcurve = *(p_segcurve++);
+            add = *(p_add++);
+            mul = *(p_mul++);
             
             /** count special parameter: if > 0
                 • freq = 1./count
                 • deltatime = 1000.
             */
-            double count = p_count->get_b(i);
+            count = *(p_count++);
             if(count >= 0.)
             {
                 freq = (count > 0.01)? 1./count : 100. ;
@@ -1305,18 +1329,20 @@ public:
     
     void perform(double * values,int numframes,double deltatime) override
     {
-        modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
-        modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
-        modtor_param * p_walk = params["walk"].buffer_proc(numframes, deltatime);
-        modtor_param * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
-        modtor_param * p_min = params["min"].buffer_proc(numframes, deltatime);
-        modtor_param * p_max = params["max"].buffer_proc(numframes, deltatime);
-        modtor_param * p_curve = params["curve"].buffer_proc(numframes, deltatime);
-        modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-        modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-        modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
+        double * p_freq = params["freq"].buffer_proc(numframes, deltatime);
+        double * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
+        double * p_walk = params["walk"].buffer_proc(numframes, deltatime);
+        double * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
+        double * p_min = params["min"].buffer_proc(numframes, deltatime);
+        double * p_max = params["max"].buffer_proc(numframes, deltatime);
+        double * p_curve = params["curve"].buffer_proc(numframes, deltatime);
+        double * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+        double * p_add = params["add"].buffer_proc(numframes, deltatime);
+        double * p_count = params["count"].buffer_proc(numframes, deltatime);
         
-        modtor_param * p_time = 0;
+        double * p_time = 0;
+        
+        double freq, varifreq, walk, min, max, curve, segcurve, add, mul, count;
         
         bool time_mode = params.find("time") != params.end();
         
@@ -1329,25 +1355,25 @@ public:
         for(int i=0; i<numframes; i++)
         {
             // get all the parameters (check time or freq format)
-            double freq = p_freq->get_b(i);
-            double varifreq = p_varifreq->get_b(i);
+            freq = *(p_freq++);
+            varifreq = *(p_varifreq++);
             
             if(time_mode)
-                freq = 1000./ std::clamp(p_time->get_b(i),0.001,10000000.);
+                freq = 1000./ std::clamp(*(p_time++),0.001,10000000.);
             
-            double walk = p_walk->get_b(i);
-            double min = p_min->get_b(i);
-            double max = p_max->get_b(i);
-            double curve = p_curve->get_b(i);
-            double segcurve = p_segcurve->get_b(i);
-            double add = p_add->get_b(i);
-            double mul = p_mul->get_b(i);
+            walk = *(p_walk++);
+            min = *(p_min++);
+            max = *(p_max++);
+            curve = *(p_curve++);
+            segcurve = *(p_segcurve++);
+            add = *(p_add++);
+            mul = *(p_mul++);
             
             /** count special parameter: if > 0
                 • freq = 1./count
                 • deltatime = 1000.
             */
-            double count = p_count->get_b(i);
+            double count = *(p_count++);
             if(count >= 0.)
             {
                 freq = (count > 0.01)? 1./count : 100. ;
@@ -1495,14 +1521,16 @@ public:
     
     void perform(double * values,int numframes,double deltatime) override
     {
-        modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
-        modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
-        modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-        modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-        modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
+        double * p_freq = params["freq"].buffer_proc(numframes, deltatime);
+        double * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
+        double * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+        double * p_add = params["add"].buffer_proc(numframes, deltatime);
+        double * p_count = params["count"].buffer_proc(numframes, deltatime);
         modtor_param * p_list = &params["list"];
         
-        modtor_param * p_time = 0;
+        double * p_time = 0;
+        
+        double freq, varifreq, add, mul, count;
         
         bool time_mode = params.find("time") != params.end();
         
@@ -1515,19 +1543,19 @@ public:
         for(int i=0; i<numframes; i++)
         {
             // get all the parameters (check time or freq format)
-            double freq = p_freq->get_b(i);
-            double varifreq = p_varifreq->get_b(i);
+            double freq = *(p_freq++);
+            double varifreq = *(p_varifreq++);
             
             if(time_mode)
-                freq = 1000./ std::clamp(p_time->get_b(i),0.001,10000000.);
+                freq = 1000./ std::clamp(*(p_time++),0.001,10000000.);
             
-            double mul = p_mul->get_b(i);
-            double add = p_add->get_b(i);
+            double mul = *(p_mul++);
+            double add = *(p_add++);
             /** count special parameter: if > 0
                 • freq = 1./count
                 • deltatime = 1000.
             */
-            double count = p_count->get_b(i);
+            double count = *(p_count++);
             if(count >= 0.)
             {
                 freq = (count > 0.01)? 1./count : 100. ;
@@ -1687,15 +1715,17 @@ public:
     
     void perform(double * values,int numframes,double deltatime) override
     {
-        modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
-        modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
-        modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-        modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-        modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
-        modtor_param * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
+        double * p_freq = params["freq"].buffer_proc(numframes, deltatime);
+        double * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
+        double * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+        double * p_add = params["add"].buffer_proc(numframes, deltatime);
+        double * p_count = params["count"].buffer_proc(numframes, deltatime);
+        double * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
         modtor_param * p_list = &params["list"];
         
-        modtor_param * p_time = 0;
+        double * p_time = 0;
+        
+        double freq, varifreq, segcurve, add, mul, count;
         
         bool time_mode = params.find("time") != params.end();
         
@@ -1708,21 +1738,21 @@ public:
         for(int i=0; i<numframes; i++)
         {
             // get all the parameters (check time or freq format)
-            double freq = p_freq->get_b(i);
-            double varifreq = p_varifreq->get_b(i);
+            double freq = *(p_freq++);
+            double varifreq = *(p_varifreq++);
             
-            double segcurve = p_segcurve->get_b(i);
+            double segcurve = *(p_segcurve++);
             
             if(time_mode)
-                freq = 1000./ std::clamp(p_time->get_b(i),0.001,10000000.);
+                freq = 1000./ std::clamp(*(p_time++),0.001,10000000.);
             
-            double mul = p_mul->get_b(i);
-            double add = p_add->get_b(i);
+            double mul = *(p_mul++);
+            double add = *(p_add++);
             /** count special parameter: if > 0
                 • freq = 1./count
                 • deltatime = 1000.
             */
-            double count = p_count->get_b(i);
+            double count = *(p_count++);
             if(count >= 0.)
             {
                 freq = (count > 0.01)? 1./count : 100. ;
@@ -1892,17 +1922,20 @@ public:
     
     void perform(double * values,int numframes,double deltatime) override
     {
-        modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
-        modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
-        modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-        modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-        modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
-        modtor_param * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
-        modtor_param * p_play = params["play"].buffer_proc(numframes, deltatime);
-        modtor_param * p_loop = params["loop"].buffer_proc(numframes, deltatime);
+        double * p_freq = params["freq"].buffer_proc(numframes, deltatime);
+        double * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
+        double * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+        double * p_add = params["add"].buffer_proc(numframes, deltatime);
+        double * p_count = params["count"].buffer_proc(numframes, deltatime);
+        double * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
+        double * p_play = params["play"].buffer_proc(numframes, deltatime);
+        double * p_loop = params["loop"].buffer_proc(numframes, deltatime);
         modtor_param * p_list = &params["list"];
         
-        modtor_param * p_time = 0;
+        double * p_time = 0;
+        
+        double freq, varifreq, segcurve, add, mul, count;
+        int play, loop;
         
         m_list = p_list->getlist();
         m_list_l  = m_list.size();
@@ -1920,25 +1953,25 @@ public:
         for(int i=0; i<numframes; i++)
         {
             // get all the parameters (check time or freq format)
-            double freq = p_freq->get_b(i);
-            double varifreq = p_varifreq->get_b(i);
+            freq = *(p_freq++);
+            varifreq = *(p_varifreq++);
             
-            double segcurve = p_segcurve->get_b(i);
+            segcurve = *(p_segcurve++);
             
             if(time_mode)
-                freq = 1000./ std::clamp(p_time->get_b(i),0.001,10000000.);
+                freq = 1000./ std::clamp(*(p_time++),0.001,10000000.);
             
-            double mul = p_mul->get_b(i);
-            double add = p_add->get_b(i);
+            mul = *(p_mul++);
+            add = *(p_add++);
             /** count special parameter: if > 0
                 • freq = 1./count
                 • deltatime = 1000.
             */
             
-            int play = p_play->get_b(i)>0;
-            int loop = p_loop->get_b(i)>0;
+            play = *(p_play++)>0;
+            loop = *(p_loop++)>0;
             
-            double count = p_count->get_b(i);
+            count = *(p_count++);
             if(count >= 0.)
             {
                 freq = (count > 0.01)? 1./count : 100. ;
@@ -2165,16 +2198,20 @@ public:
     
     void perform(double * values,int numframes,double deltatime) override
     {
-        modtor_param * p_freq = params["freq"].buffer_proc(numframes, deltatime);
-        modtor_param * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
-        modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-        modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-        modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
-        modtor_param * p_play = params["play"].buffer_proc(numframes, deltatime);
-        modtor_param * p_loop = params["loop"].buffer_proc(numframes, deltatime);
+        double * p_freq = params["freq"].buffer_proc(numframes, deltatime);
+        double * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
+        double * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+        double * p_add = params["add"].buffer_proc(numframes, deltatime);
+        double * p_count = params["count"].buffer_proc(numframes, deltatime);
+        double * p_play = params["play"].buffer_proc(numframes, deltatime);
+        double * p_loop = params["loop"].buffer_proc(numframes, deltatime);
         modtor_param * p_list = &params["list"];
         
-        modtor_param * p_time = 0;
+        double * p_time = 0;
+        
+        double freq, varifreq, add, mul, count;
+        
+        int play, loop;
         
         bool time_mode = params.find("time") != params.end();
         
@@ -2187,24 +2224,24 @@ public:
         for(int i=0; i<numframes; i++)
         {
             // get all the parameters (check time or freq format)
-            double freq = p_freq->get_b(i);
-            double varifreq = p_varifreq->get_b(i);
+            freq = *(p_freq++);
+            varifreq = *(p_varifreq++);
             
             
             if(time_mode)
-                freq = 1000./ std::clamp(p_time->get_b(i),0.001,10000000.);
+                freq = 1000./ std::clamp(*(p_time++),0.001,10000000.);
             
-            double mul = p_mul->get_b(i);
-            double add = p_add->get_b(i);
+            mul = *(p_mul++);
+            add = *(p_add++);
             /** count special parameter: if > 0
                 • freq = 1./count
                 • deltatime = 1000.
             */
             
-            int play = p_play->get_b(i)>0;
-            int loop = p_loop->get_b(i)>0;
+            play = *(p_play++)>0;
+            loop = *(p_loop++)>0;
             
-            double count = p_count->get_b(i);
+            count = *(p_count++);
             if(count >= 0.)
             {
                 freq = (count > 0.01)? 1./count : 100. ;
@@ -2481,17 +2518,21 @@ public:
     
     void perform(double * values,int numframes,double deltatime) override
     {
-        modtor_param * p_time = params["time"].buffer_proc(numframes, deltatime);
-        modtor_param * p_varitime = params["varitime"].buffer_proc(numframes, deltatime);
-        modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-        modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-        modtor_param * p_count = params["count"].buffer_proc(numframes, deltatime);
-        modtor_param * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
-        modtor_param * p_play = params["play"].buffer_proc(numframes, deltatime);
-        modtor_param * p_loop = params["loop"].buffer_proc(numframes, deltatime);
+        double * p_time = params["time"].buffer_proc(numframes, deltatime);
+        double * p_varitime = params["varitime"].buffer_proc(numframes, deltatime);
+        double * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+        double * p_add = params["add"].buffer_proc(numframes, deltatime);
+        double * p_count = params["count"].buffer_proc(numframes, deltatime);
+        double * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
+        double * p_play = params["play"].buffer_proc(numframes, deltatime);
+        double * p_loop = params["loop"].buffer_proc(numframes, deltatime);
         modtor_param * p_list_ = &params["list"];
         
-        modtor_param * p_freq = 0;
+        double * p_freq = 0;
+        
+        double time, varitime, freq, varifreq, segcurve, add, mul, count;
+        
+        int play, loop;
         
         p_list = p_list_->getlist();
         
@@ -2506,26 +2547,26 @@ public:
         for(int i=0; i<numframes; i++)
         {
             // get all the parameters (check time or freq format)
-            double time = p_time->get_b(i);
-            double varitime = p_varitime->get_b(i);
+            time = *(p_time++);
+            varitime = *(p_varitime++);
             
-            double segcurve = p_segcurve->get_b(i);
+            segcurve = *(p_segcurve++);
             
             if(freq_mode)
-                time = 1000./ std::clamp(p_freq->get_b(i),0.001,10000000.);
+                time = 1000./ std::clamp(*(p_freq++),0.001,10000000.);
             
             
-            double mul = p_mul->get_b(i);
-            double add = p_add->get_b(i);
+            mul = *(p_mul++);
+            add = *(p_add++);
             /** count special parameter: if > 0
                 • freq = 1./count
                 • deltatime = 1000.
             */
             
-            int play = p_play->get_b(i)>0;
-            int loop = p_loop->get_b(i)>0;
+            play = *(p_play++)>0;
+            loop = *(p_loop++)>0;
             
-            double count = p_count->get_b(i);
+            count = *(p_count++);
             if(count >= 0.)
             {
                 time = (count > 0.01)? count * 1000 : 10. ;
@@ -2866,17 +2907,19 @@ public:
     
     void perform(double * values,int numframes,double deltatime) override
     {
-        modtor_param * p_in = params["in"].buffer_proc(numframes, deltatime);
-        modtor_param * p_depth = params["depth"].buffer_proc(numframes, deltatime);
-        modtor_param * p_mod = params["mod"].buffer_proc(numframes, deltatime);
-        modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-        modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
+        double * p_in = params["in"].buffer_proc(numframes, deltatime);
+        double * p_depth = params["depth"].buffer_proc(numframes, deltatime);
+        double * p_mod = params["mod"].buffer_proc(numframes, deltatime);
+        double * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+        double * p_add = params["add"].buffer_proc(numframes, deltatime);
         modtor_param * p_list_ = &params["list"];
 
-        modtor_param * p_time = 0;
+        double * p_time = 0;
+        
+        double in, depth, add, mul;
         
         // mod is sampled every buffer
-        double mod = std::max(p_mod->get_b(0),0.);
+        double mod = std::max(*(p_mod),0.);
         
         p_list = p_list_->getlist();
         
@@ -2894,12 +2937,12 @@ public:
         for(int i=0; i<numframes; i++)
         {
             // get all the parameters
-            double in = p_in->get_b(i);
+            in = *(p_in++);
             
-            double depth = std::clamp(p_depth->get_b(i),0.,1.);
+            depth = std::clamp(*(p_depth++),0.,1.);
 
-            double mul = p_mul->get_b(i);
-            double add = p_add->get_b(i);
+            mul = *(p_mul++);
+            add = *(p_add++);
             
             
             if(!m_list.size())
@@ -3176,15 +3219,17 @@ public:
     
     void perform(double * values,int numframes,double deltatime) override
     {
-        modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
-        modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
-        modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-        modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-        modtor_param * p_fade = params["fade"].buffer_proc(numframes, deltatime);
-        modtor_param * p_fadecurve = params["fadecurve"].buffer_proc(numframes, deltatime);
+        double * p_a = params["a"].buffer_proc(numframes, deltatime);
+        double * p_b = params["b"].buffer_proc(numframes, deltatime);
+        double * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+        double * p_add = params["add"].buffer_proc(numframes, deltatime);
+        double * p_fade = params["fade"].buffer_proc(numframes, deltatime);
+        double * p_fadecurve = params["fadecurve"].buffer_proc(numframes, deltatime);
+        
+        double in1, in2, mul, add, fade;
         
         // sample curve
-        double fadecurve = std::clamp(p_fadecurve->get_b(0),-1.04,1.04);
+        double fadecurve = std::clamp(*(p_fadecurve),-1.04,1.04);
         // fadecurve = 0 : linear
         // fadecurve = 1 : tight (square)
         segment_scale.setcurve(fadecurve);
@@ -3192,11 +3237,11 @@ public:
         for(int i=0; i<numframes; i++)
         {
             // get all the parameters
-            double in1 = p_a->get_b(i);
-            double in2 = p_b->get_b(i);
-            double mul = p_mul->get_b(i);
-            double add = p_add->get_b(i);
-            double fade = std::clamp(p_fade->get_b(i),0.,1.);
+            in1 = *(p_a++);
+            in2 = *(p_b++);
+            mul = *(p_mul++);
+            add = *(p_add++);
+            fade = std::clamp(*(p_fade++),0.,1.);
             
             //m_fade1 = std::clamp((((1-fade)-0.5)*(1./(1.-fadecurve)))+0.5,0.,1.);
             m_fade2 = segment_scale.apply(fade);
@@ -3352,17 +3397,17 @@ public:
     
     void perform(double * values,int numframes,double deltatime) override
     {
-        modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
-        modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
-        modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-        modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
+        double * p_a = params["a"].buffer_proc(numframes, deltatime);
+        double * p_b = params["b"].buffer_proc(numframes, deltatime);
+        double * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+        double * p_add = params["add"].buffer_proc(numframes, deltatime);
 
-        
+        double mul, add;
         for(int i=0; i<numframes; i++)
         {
-            double mul = p_mul->get_b(i);
-            double add = p_add->get_b(i);
-            values[i] = add+(mul * (p_a->get_b(i) + p_b->get_b(i)));
+            mul = *(p_mul++);
+            add = *(p_add++);
+            values[i] = add+(mul * (*(p_a++) + *(p_b++)));
             
         }
 
@@ -3408,17 +3453,18 @@ public:
     
     void perform(double * values,int numframes,double deltatime) override
     {
-        modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
-        modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
-        modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-        modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
-
+        double * p_a = params["a"].buffer_proc(numframes, deltatime);
+        double * p_b = params["b"].buffer_proc(numframes, deltatime);
+        double * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+        double * p_add = params["add"].buffer_proc(numframes, deltatime);
+        
+        double mul, add;
         
         for(int i=0; i<numframes; i++)
         {
-            double mul = p_mul->get_b(i);
-            double add = p_add->get_b(i);
-            values[i] = add+(mul * (p_a->get_b(i) - p_b->get_b(i)));
+            mul = *(p_mul++);
+            add = *(p_add++);
+            values[i] = add+(mul * (*(p_a++) - *(p_b++)));
             
         }
 
@@ -3463,17 +3509,18 @@ public:
     
     void perform(double * values,int numframes,double deltatime) override
     {
-        modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
-        modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
-        modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-        modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
+        double * p_a = params["a"].buffer_proc(numframes, deltatime);
+        double * p_b = params["b"].buffer_proc(numframes, deltatime);
+        double * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+        double * p_add = params["add"].buffer_proc(numframes, deltatime);
 
+        double mul, add;
         
         for(int i=0; i<numframes; i++)
         {
-            double mul = p_mul->get_b(i);
-            double add = p_add->get_b(i);
-            values[i] = add+(mul * (p_a->get_b(i) * p_b->get_b(i)));
+            mul = *(p_mul++);
+            add = *(p_add++);
+            values[i] = add+(mul * (*(p_a++) * *(p_b++)));
             
         }
 
@@ -3518,17 +3565,18 @@ public:
     
     void perform(double * values,int numframes,double deltatime) override
     {
-        modtor_param * p_a = params["a"].buffer_proc(numframes, deltatime);
-        modtor_param * p_b = params["b"].buffer_proc(numframes, deltatime);
-        modtor_param * p_mul = params["mul"].buffer_proc(numframes, deltatime);
-        modtor_param * p_add = params["add"].buffer_proc(numframes, deltatime);
+        double * p_a = params["a"].buffer_proc(numframes, deltatime);
+        double * p_b = params["b"].buffer_proc(numframes, deltatime);
+        double * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+        double * p_add = params["add"].buffer_proc(numframes, deltatime);
 
+        double mul, add;
         
         for(int i=0; i<numframes; i++)
         {
-            double mul = p_mul->get_b(i);
-            double add = p_add->get_b(i);
-            values[i] = add+(mul * (p_a->get_b(i) / p_b->get_b(i)));
+            mul = *(p_mul++);
+            add = *(p_add++);
+            values[i] = add+(mul * (*(p_a++) / *(p_b++)));
             
         }
 
@@ -3573,7 +3621,20 @@ public:
     
     void perform(double * values,int numframes,double deltatime) override
     {
-        /* todo */
+        double * p_val = params["val"].buffer_proc(numframes, deltatime);
+        double * p_mul = params["mul"].buffer_proc(numframes, deltatime);
+        double * p_add = params["add"].buffer_proc(numframes, deltatime);
+
+        double mul, add;
+        
+        for(int i=0; i<numframes; i++)
+        {
+            mul = *(p_mul++);
+            add = *(p_add++);
+            values[i] = add+(mul * *(p_val++));
+            
+        }
+        
 
     }
     
