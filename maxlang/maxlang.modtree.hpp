@@ -1332,7 +1332,6 @@ public:
         double * p_freq = params["freq"].buffer_proc(numframes, deltatime);
         double * p_varifreq = params["varifreq"].buffer_proc(numframes, deltatime);
         double * p_walk = params["walk"].buffer_proc(numframes, deltatime);
-        double * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
         double * p_min = params["min"].buffer_proc(numframes, deltatime);
         double * p_max = params["max"].buffer_proc(numframes, deltatime);
         double * p_curve = params["curve"].buffer_proc(numframes, deltatime);
@@ -1342,7 +1341,7 @@ public:
         
         double * p_time = 0;
         
-        double freq, varifreq, walk, min, max, curve, segcurve, add, mul, count;
+        double freq, varifreq, walk, min, max, curve, add, mul, count;
         
         bool time_mode = params.find("time") != params.end();
         
@@ -1365,7 +1364,6 @@ public:
             min = *(p_min++);
             max = *(p_max++);
             curve = *(p_curve++);
-            segcurve = *(p_segcurve++);
             add = *(p_add++);
             mul = *(p_mul++);
             
@@ -1868,6 +1866,7 @@ public:
         params.insert(std::pair<std::string, modtor_param>("mul",modtor_param(1.)));
         params.insert(std::pair<std::string, modtor_param>("add",modtor_param(0.)));
         params.insert(std::pair<std::string, modtor_param>("segcurve",modtor_param(0.)));
+        params.insert(std::pair<std::string, modtor_param>("segcurveshape",modtor_param(0)));
         params.insert(std::pair<std::string, modtor_param>("play",modtor_param(1)));
         params.insert(std::pair<std::string, modtor_param>("loop",modtor_param(1)));
         params.insert(std::pair<std::string, modtor_param>("count",modtor_param(-1.)));
@@ -1928,6 +1927,7 @@ public:
         double * p_add = params["add"].buffer_proc(numframes, deltatime);
         double * p_count = params["count"].buffer_proc(numframes, deltatime);
         double * p_segcurve = params["segcurve"].buffer_proc(numframes, deltatime);
+        double * p_segcurve_s = params["segcurveshape"].buffer_proc(numframes, deltatime);
         double * p_play = params["play"].buffer_proc(numframes, deltatime);
         double * p_loop = params["loop"].buffer_proc(numframes, deltatime);
         modtor_param * p_list = &params["list"];
@@ -1935,6 +1935,7 @@ public:
         double * p_time = 0;
         
         double freq, varifreq, segcurve, add, mul, count;
+        bool segcurve_s = false;
         int play, loop;
         
         m_list = p_list->getlist();
@@ -1957,6 +1958,7 @@ public:
             varifreq = *(p_varifreq++);
             
             segcurve = *(p_segcurve++);
+            segcurve_s = *(p_segcurve_s++);
             
             if(time_mode)
                 freq = 1000./ std::clamp(*(p_time++),0.001,10000000.);
@@ -2032,6 +2034,7 @@ public:
                         // sample segcurve value
                         m_segcurve=segcurve;
                         segment_scale.setcurve(m_segcurve);
+                        segment_scale.setcurve_s(segcurve_s);
                         
                     }
                 }
@@ -2058,6 +2061,7 @@ public:
         double mul = params["mul"].get(deltatime);
         double add = params["add"].get(deltatime);
         double segcurve = params["segcurve"].get(deltatime);
+        bool segcurve_s = params["segcurveshape"].get(deltatime)>0;
         int play = params["play"].get(deltatime)>0;
         int loop = params["loop"].get(deltatime)>0;
         /** count special parameter: if > 0
@@ -2129,6 +2133,7 @@ public:
                 // sample segcurve value
                 m_segcurve=segcurve;
                 segment_scale.setcurve(m_segcurve);
+                segment_scale.setcurve_s(segcurve_s);
                 
             }
         }
@@ -2251,7 +2256,7 @@ public:
             m_list = p_list->getlist();
             m_list_l  = m_list.size();
             if(m_list_l == 0 )
-                return 0.;
+                return;
             
             if(!m_playing && play) // restart the sequence
             {
@@ -2581,7 +2586,7 @@ public:
             }
             
             if(!m_seg_l)
-                return 0.;
+                return;
             
             if(!m_playing && play) // restart the sequence
             {
@@ -3249,7 +3254,7 @@ public:
                 
             m_val = (m_fade1 * in1) + (m_fade2 * in2);
             
-            return add+(m_val*mul);
+            values[i] = add+(m_val*mul);
         }
 
     }

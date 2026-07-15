@@ -132,6 +132,8 @@ namespace maxlang
         }
         
         double curve=0;
+        bool s_curve = false;
+        float s_pivot = 0.5;
         int curve_sign = 1;
         double in_min=0, in_max=1, out_min=0., out_max=1.;
         // curve magical coeff
@@ -141,16 +143,47 @@ namespace maxlang
         
         double apply(double f)
         {
-            // scaled between 0 & 1
-            double scaled_in = (f-in_min)/dx;
-            dy = (out_max - out_min) * curve_sign;
-            return (bb * (pow(mm,scaled_in)-1))*dy + out_min;
+            if(!s_curve)
+            {
+                // scaled between 0 & 1
+                double scaled_in = (f-in_min)/dx;
+                dy = (out_max - out_min) * curve_sign;
+                return (bb * (pow(mm,scaled_in)-1))*dy + out_min;
+                
+            }else
+            {
+                // s_curve
+                
+                double scaled_in = (f-in_min)/dx;
+                dy = (out_max - out_min) * curve_sign;
+                double _out_min;
+                double _out_max;
+                
+                if(scaled_in<s_pivot)
+                {   // SEGMENT 1
+                    _out_min = out_min;
+                    _out_max = out_min + (dy / 2);
+                    dy = (_out_max - _out_min) * curve_sign;
+                    scaled_in = scaled_in/s_pivot;
+                    return (bb * (pow(mm,scaled_in)-1))*dy + _out_min;
+                    
+                }else
+                {   // SEGMENT 2
+                    _out_min = out_max;
+                    _out_max = out_min + (dy / 2);
+                    dy = (_out_max - _out_min) * curve_sign;
+                    scaled_in = 1-((scaled_in-s_pivot)/(1-s_pivot));
+                    return (bb * (pow(mm,scaled_in)-1))*dy + _out_min;
+                    
+                }
+                dy = (out_max - out_min) * curve_sign;
+                return (bb * (pow(mm,scaled_in)-1))*dy + out_min;
+            }
         }
         
         void setcurve(double c)
         {
-            //curve = std::clamp(c,-1.04,1.04);
-            curve = (c <= -1.04)? -1.04 : ((c > 1.04)? 1.04 : c);
+            curve = std::clamp(c,-1.04,1.04);
             double hh, ff, eff, gh;
             
             if(curve<0)
@@ -175,6 +208,12 @@ namespace maxlang
                 bb += 1;
             }else
                 mm = ((exp(ff) - 1) / (eff * bb)) + 1;
+            
+        }
+        
+        void setcurve_s(bool s)
+        {
+            s_curve = s;
             
         }
         
