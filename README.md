@@ -1,8 +1,12 @@
 # maxlang
 
+![Texte alternatif](maxlang.doc/doc-img/lfo-3.png)
+
 A small text language and a set of Max/MSP externals for describing **modulators**
 (LFOs, ramps, random generators, sequencers, envelopes…) and driving module
 parameters with them from Max.
+
+
 
 ```
 lfo(freq=6 min=0 max=100 mode=1)
