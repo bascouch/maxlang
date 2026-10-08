@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+._*
+
+# CMake / build output
+build/
+CMakeFiles/
+CMakeScripts/
+CMakeCache.txt
+cmake_install.cmake
+
+# Xcode user data
+xcuserdata/
+*.xcuserstate
+DerivedData/
